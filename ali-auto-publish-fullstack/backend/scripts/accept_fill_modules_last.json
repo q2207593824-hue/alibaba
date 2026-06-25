@@ -1,0 +1,111 @@
+{
+  "group": "CHAMPIONSHIP RINGS",
+  "sections": [
+    {
+      "module": "spec",
+      "items": [
+        {
+          "name": "戒指尺寸",
+          "container_id": "p-191292953",
+          "enable_sale_attribute": true,
+          "enable_spec_image": false,
+          "default_values": [
+            "11",
+            "12",
+            "13"
+          ],
+          "values_pool_len": 28,
+          "interaction": "checkbox_grid",
+          "issues": []
+        },
+        {
+          "name": "材质",
+          "container_id": "",
+          "enable_sale_attribute": null,
+          "enable_spec_image": false,
+          "default_values": [],
+          "values_pool_len": 0,
+          "interaction": "value_rows",
+          "issues": []
+        },
+        {
+          "name": "样式",
+          "container_id": "",
+          "enable_sale_attribute": null,
+          "enable_spec_image": false,
+          "default_values": [],
+          "values_pool_len": 0,
+          "interaction": "value_rows",
+          "issues": []
+        },
+        {
+          "name": "颜色",
+          "container_id": "p-191288010",
+          "enable_sale_attribute": null,
+          "enable_spec_image": true,
+          "default_values": [],
+          "values_pool_len": 0,
+          "interaction": "value_rows",
+          "issues": [
+            "开启规格图但无 default_values（将扫图片目录）"
+          ]
+        },
+        {
+          "name": "CHAMPIONSHIP RINGS_规格_p-210192502",
+          "container_id": "p-210192502",
+          "enable_sale_attribute": null,
+          "enable_spec_image": false,
+          "default_values": [],
+          "values_pool_len": 0,
+          "interaction": "value_rows",
+          "issues": []
+        }
+      ]
+    },
+    {
+      "module": "attribute",
+      "empty_required": [],
+      "configured_count": 19
+    },
+    {
+      "module": "paths",
+      "checks": {
+        "scene": {
+          "ok": true,
+          "path": "D:\\Alibaba\\Alibaba自动发品\\data\\详情\\场景图",
+          "image_files": 2
+        },
+        "detail": {
+          "ok": true,
+          "path": "D:\\Alibaba\\Alibaba自动发品\\data\\详情\\细节图",
+          "image_files": 4
+        },
+        "company": {
+          "ok": true,
+          "path": "D:\\Alibaba\\Alibaba自动发品\\data\\详情\\公司介绍",
+          "image_files": 0
+        },
+        "main": {
+          "ok": true,
+          "path": "D:\\Alibaba\\Alibaba自动发品\\data\\主图",
+          "image_files": 0
+        },
+        "primary": {
+          "ok": true,
+          "path": "D:\\Alibaba\\Alibaba自动发品\\data\\首图",
+          "image_files": 3
+        }
+      }
+    },
+    {
+      "module": "spec_images",
+      "pid": "607-1",
+      "folder": "D:\\Alibaba\\Alibaba自动发品\\data\\主图\\607-1\\颜色",
+      "exists": true,
+      "scanned_colors": [
+        "gold",
+        "platinum gold"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+## OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+## Logs
+*.log
+
+## Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+backend/venv/
+venv/
+
+## Node
+node_modules/
+frontend/node_modules/
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+## Frontend build artifacts
+frontend/dist/
+frontend/release/
+frontend/.dev-backend-port
+
+## Backend build artifacts
+backend/build/
+backend/dist/
+backend/*.spec
+
+## App runtime data (local machine)
+data/
+backend/data/

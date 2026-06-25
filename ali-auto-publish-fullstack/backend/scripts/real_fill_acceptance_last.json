@@ -1,0 +1,12 @@
+{
+  "pid": "607-1",
+  "group": "CHAMPIONSHIP RINGS",
+  "main_dir": "D:\\Alibaba\\Alibaba自动发品\\data\\主图\\607-1",
+  "fill_ok": true,
+  "elapsed_s": 519.8,
+  "spec_issues": [
+    "规格/戒指尺寸: 期望勾选 ['11', '12', '13'] 实际=['', '', '']"
+  ],
+  "detail_issues": [],
+  "attr_issues": []
+}

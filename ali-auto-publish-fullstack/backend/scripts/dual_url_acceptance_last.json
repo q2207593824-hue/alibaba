@@ -1,0 +1,1777 @@
+{
+  "pid": "607-1",
+  "group": "CHAMPIONSHIP RINGS",
+  "runs": [
+    {
+      "mode": "copy_post",
+      "mode_label": "复制发品",
+      "url": "https://post.alibaba.com/product/publish.htm?spm=a2747.product_manager.0.0.5a3e71d2fAJ4jx&pubType=similarPost&itemId=1601823011019&behavior=copyNew",
+      "pid": "607-1",
+      "group": "CHAMPIONSHIP RINGS",
+      "main_dir": "D:\\Alibaba\\Alibaba自动发品\\data\\主图\\607-1",
+      "fill_ok": true,
+      "elapsed_s": 185.6,
+      "step_timings_s": {
+        "1_打开页面": 4.13,
+        "2_上传图片": 1.47,
+        "3_标题关键词": 1.22,
+        "4_规格选择": 67.3,
+        "5_价格库存": 16.42,
+        "6_属性填写": 13.59,
+        "7_详情模块": 79.84,
+        "8_规格补全": 0.98,
+        "9_最终验收": 0.62,
+        "总计": 185.57
+      },
+      "attr_fill_report": [
+        {
+          "attr_name": "主石",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Natural Stone"
+          ],
+          "duration_s": 0.677,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Natural Stone"
+          ],
+          "error": "",
+          "original_values": [
+            "ResinShell"
+          ],
+          "planned_values": [
+            "Natural Stone"
+          ]
+        },
+        {
+          "attr_name": "原产地",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "China"
+          ],
+          "duration_s": 0.11,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "China"
+          ],
+          "error": "",
+          "original_values": [
+            "China"
+          ],
+          "planned_values": [
+            "China"
+          ]
+        },
+        {
+          "attr_name": "性别",
+          "select_type": "tag",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Men's"
+          ],
+          "duration_s": 0.104,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Men's"
+          ],
+          "error": "",
+          "original_values": [
+            "Men's"
+          ],
+          "planned_values": [
+            "Men's"
+          ]
+        },
+        {
+          "attr_name": "戒指类型",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ],
+          "duration_s": 0.669,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ],
+          "error": "",
+          "original_values": [
+            "CHAMPION RING",
+            "Eternity Band Rings"
+          ],
+          "planned_values": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ]
+        },
+        {
+          "attr_name": "样式",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Traditional"
+          ],
+          "duration_s": 0.109,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Traditional"
+          ],
+          "error": "",
+          "original_values": [
+            "Traditional"
+          ],
+          "planned_values": [
+            "Traditional"
+          ]
+        },
+        {
+          "attr_name": "首饰主要材质",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Alloy"
+          ],
+          "duration_s": 0.666,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Alloy"
+          ],
+          "error": "",
+          "original_values": [
+            "Glass"
+          ],
+          "planned_values": [
+            "Alloy"
+          ]
+        },
+        {
+          "attr_name": "使用场合",
+          "select_type": "tag",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Gift",
+            "Anniversary",
+            "Bridal Shower",
+            "Party"
+          ],
+          "duration_s": 1.739,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Anniversary",
+            "Gift",
+            "Bridal Shower",
+            "Party"
+          ],
+          "error": "",
+          "original_values": [
+            "Anniversary",
+            "Gift",
+            "Birthday",
+            "Engagement"
+          ],
+          "planned_values": [
+            "Gift",
+            "Anniversary",
+            "Bridal Shower",
+            "Party"
+          ]
+        },
+        {
+          "attr_name": "品牌",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "MC"
+          ],
+          "duration_s": 0.671,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "MC"
+          ],
+          "error": "",
+          "original_values": [
+            "MOON JEWELRY CHAMPIONSHIP RING"
+          ],
+          "planned_values": [
+            "MC"
+          ]
+        },
+        {
+          "attr_name": "型号",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "001"
+          ],
+          "duration_s": 0.655,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "001"
+          ],
+          "error": "",
+          "original_values": [
+            "046 CHAMPION RING"
+          ],
+          "planned_values": [
+            "001"
+          ]
+        },
+        {
+          "attr_name": "宗教分类",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Islam"
+          ],
+          "duration_s": 0.583,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Islam"
+          ],
+          "error": "",
+          "original_values": [
+            "HINDUISM"
+          ],
+          "planned_values": [
+            "Islam"
+          ]
+        },
+        {
+          "attr_name": "宝石形状",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Round",
+            "Princess Cut"
+          ],
+          "duration_s": 0.581,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Round",
+            "Princess Cut"
+          ],
+          "error": "",
+          "original_values": [
+            "PEAR"
+          ],
+          "planned_values": [
+            "Round",
+            "Princess Cut"
+          ]
+        },
+        {
+          "attr_name": "宝石生成方式",
+          "select_type": "single_search",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Natural"
+          ],
+          "duration_s": 0.625,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Natural"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Natural"
+          ]
+        },
+        {
+          "attr_name": "应用",
+          "select_type": "single_search",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Shopping"
+          ],
+          "duration_s": 0.625,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Shopping"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Shopping"
+          ]
+        },
+        {
+          "attr_name": "形状\\图案",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Lips"
+          ],
+          "duration_s": 0.096,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Lips"
+          ],
+          "error": "",
+          "original_values": [
+            "Lips"
+          ],
+          "planned_values": [
+            "Lips"
+          ]
+        },
+        {
+          "attr_name": "提供模具制作和样品制作服务",
+          "select_type": "single_search",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "mould making"
+          ],
+          "duration_s": 0.1,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "sample making",
+            "mould making"
+          ],
+          "error": "",
+          "original_values": [
+            "sample making",
+            "mould making"
+          ],
+          "planned_values": [
+            "mould making"
+          ]
+        },
+        {
+          "attr_name": "证书类型",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [],
+          "duration_s": 0.008,
+          "status": "empty",
+          "verify": "pending",
+          "actual": [],
+          "error": "",
+          "original_values": [],
+          "planned_values": []
+        },
+        {
+          "attr_name": "诞生石",
+          "select_type": "single_search",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "January"
+          ],
+          "duration_s": 0.611,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "January"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "January"
+          ]
+        },
+        {
+          "attr_name": "镀层厚度",
+          "select_type": "tag",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "0.5μm",
+            "0.1μm"
+          ],
+          "duration_s": 0.993,
+          "status": "partial",
+          "verify": "mismatch",
+          "actual": [
+            "0.1μm"
+          ],
+          "error": "",
+          "original_values": [
+            "0.5μm",
+            "0.3μm"
+          ],
+          "planned_values": [
+            "0.5μm",
+            "0.1μm"
+          ]
+        },
+        {
+          "attr_name": "镀色",
+          "select_type": "tag",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "22k gold plated",
+            "14K Gold Plated",
+            "Imitation Rhodium Plated"
+          ],
+          "duration_s": 1.459,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "14K Gold Plated",
+            "22k gold plated",
+            "Imitation Rhodium Plated"
+          ],
+          "error": "",
+          "original_values": [
+            "14K Gold Plated"
+          ],
+          "planned_values": [
+            "22k gold plated",
+            "14K Gold Plated",
+            "Imitation Rhodium Plated"
+          ]
+        },
+        {
+          "attr_name": "镶嵌技术",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Customized"
+          ],
+          "duration_s": 0.105,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Customized"
+          ],
+          "error": "",
+          "original_values": [
+            "Customized"
+          ],
+          "planned_values": [
+            "Customized"
+          ]
+        },
+        {
+          "attr_name": "首饰类型",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "CHAMPIONSHIP RING"
+          ],
+          "duration_s": 0.099,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "CHAMPIONSHIP RING"
+          ],
+          "error": "",
+          "original_values": [
+            "CHAMPIONSHIP RING"
+          ],
+          "planned_values": [
+            "CHAMPIONSHIP RING"
+          ]
+        },
+        {
+          "attr_name": "(批量验收)",
+          "select_type": "",
+          "required": false,
+          "phase": "batch_verify",
+          "values": [],
+          "duration_s": 0.239,
+          "status": "mismatch",
+          "verify": "mismatch",
+          "actual": [],
+          "error": ""
+        },
+        {
+          "attr_name": "镀层厚度",
+          "select_type": "tag",
+          "required": false,
+          "phase": "refill",
+          "values": [
+            "0.5μm",
+            "0.1μm"
+          ],
+          "duration_s": 0.72,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "0.1μm",
+            "0.5μm"
+          ],
+          "error": ""
+        }
+      ],
+      "attr_value_audit": [
+        {
+          "attr_name": "原产地",
+          "select_type": "input",
+          "required": true,
+          "original_values": [
+            "China"
+          ],
+          "planned_values": [
+            "China"
+          ],
+          "final_values": [
+            "China"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "型号",
+          "select_type": "input",
+          "required": false,
+          "original_values": [
+            "046 CHAMPION RING"
+          ],
+          "planned_values": [
+            "001"
+          ],
+          "final_values": [
+            "001"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "品牌",
+          "select_type": "input",
+          "required": false,
+          "original_values": [
+            "MOON JEWELRY CHAMPIONSHIP RING"
+          ],
+          "planned_values": [
+            "MC"
+          ],
+          "final_values": [
+            "MC"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "首饰主要材质",
+          "select_type": "input",
+          "required": true,
+          "original_values": [
+            "Glass"
+          ],
+          "planned_values": [
+            "Alloy"
+          ],
+          "final_values": [
+            "Alloy"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "样式",
+          "select_type": "input",
+          "required": true,
+          "original_values": [
+            "Traditional"
+          ],
+          "planned_values": [
+            "Traditional"
+          ],
+          "final_values": [
+            "Traditional"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "性别",
+          "select_type": "tag",
+          "required": true,
+          "original_values": [
+            "Men's"
+          ],
+          "planned_values": [
+            "Men's"
+          ],
+          "final_values": [
+            "Men's"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "主石",
+          "select_type": "input",
+          "required": true,
+          "original_values": [
+            "ResinShell"
+          ],
+          "planned_values": [
+            "Natural Stone"
+          ],
+          "final_values": [
+            "Natural Stone"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "戒指类型",
+          "select_type": "input",
+          "required": true,
+          "original_values": [
+            "CHAMPION RING",
+            "Eternity Band Rings"
+          ],
+          "planned_values": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ],
+          "final_values": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "首饰类型",
+          "select_type": "input",
+          "required": false,
+          "original_values": [
+            "CHAMPIONSHIP RING"
+          ],
+          "planned_values": [
+            "CHAMPIONSHIP RING"
+          ],
+          "final_values": [
+            "CHAMPIONSHIP RING"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "使用场合",
+          "select_type": "tag",
+          "required": false,
+          "original_values": [
+            "Anniversary",
+            "Gift",
+            "Birthday",
+            "Engagement"
+          ],
+          "planned_values": [
+            "Gift",
+            "Anniversary",
+            "Bridal Shower",
+            "Party"
+          ],
+          "final_values": [
+            "Anniversary",
+            "Gift",
+            "Bridal Shower",
+            "Party"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "镀色",
+          "select_type": "tag",
+          "required": false,
+          "original_values": [
+            "14K Gold Plated"
+          ],
+          "planned_values": [
+            "22k gold plated",
+            "14K Gold Plated",
+            "Imitation Rhodium Plated"
+          ],
+          "final_values": [
+            "14K Gold Plated",
+            "22k gold plated",
+            "Imitation Rhodium Plated"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "形状\\图案",
+          "select_type": "input",
+          "required": false,
+          "original_values": [
+            "Lips"
+          ],
+          "planned_values": [
+            "Lips"
+          ],
+          "final_values": [
+            "Lips"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "宗教分类",
+          "select_type": "input",
+          "required": false,
+          "original_values": [
+            "HINDUISM"
+          ],
+          "planned_values": [
+            "Islam"
+          ],
+          "final_values": [
+            "Islam"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "镶嵌技术",
+          "select_type": "input",
+          "required": false,
+          "original_values": [
+            "Customized"
+          ],
+          "planned_values": [
+            "Customized"
+          ],
+          "final_values": [
+            "Customized"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "提供模具制作和样品制作服务",
+          "select_type": "single_search",
+          "required": false,
+          "original_values": [
+            "sample making",
+            "mould making"
+          ],
+          "planned_values": [
+            "mould making"
+          ],
+          "final_values": [
+            "sample making",
+            "mould making"
+          ],
+          "match": false
+        },
+        {
+          "attr_name": "宝石生成方式",
+          "select_type": "single_search",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "Natural"
+          ],
+          "final_values": [
+            "Natural"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "宝石形状",
+          "select_type": "input",
+          "required": false,
+          "original_values": [
+            "PEAR"
+          ],
+          "planned_values": [
+            "Round",
+            "Princess Cut"
+          ],
+          "final_values": [
+            "Round",
+            "Princess Cut"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "应用",
+          "select_type": "single_search",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "Shopping"
+          ],
+          "final_values": [
+            "Shopping"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "诞生石",
+          "select_type": "single_search",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "January"
+          ],
+          "final_values": [
+            "January"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "镀层厚度",
+          "select_type": "tag",
+          "required": false,
+          "original_values": [
+            "0.5μm",
+            "0.3μm"
+          ],
+          "planned_values": [
+            "0.5μm",
+            "0.1μm"
+          ],
+          "final_values": [
+            "0.1μm",
+            "0.5μm"
+          ],
+          "match": true
+        }
+      ],
+      "planned_attrs": {
+        "主石": [
+          "Natural Stone"
+        ],
+        "原产地": [
+          "China"
+        ],
+        "性别": [
+          "Men's"
+        ],
+        "戒指类型": [
+          "Three Stone Rings",
+          "Cocktail Ring"
+        ],
+        "样式": [
+          "Traditional"
+        ],
+        "首饰主要材质": [
+          "Alloy"
+        ],
+        "使用场合": [
+          "Gift",
+          "Anniversary",
+          "Bridal Shower",
+          "Party"
+        ],
+        "品牌": [
+          "MC"
+        ],
+        "型号": [
+          "001"
+        ],
+        "宗教分类": [
+          "Islam"
+        ],
+        "宝石形状": [
+          "Round",
+          "Princess Cut"
+        ],
+        "宝石生成方式": [
+          "Natural"
+        ],
+        "应用": [
+          "Shopping"
+        ],
+        "形状\\图案": [
+          "Lips"
+        ],
+        "提供模具制作和样品制作服务": [
+          "mould making"
+        ],
+        "诞生石": [
+          "January"
+        ],
+        "镀层厚度": [
+          "0.5μm",
+          "0.1μm"
+        ],
+        "镀色": [
+          "22k gold plated",
+          "14K Gold Plated",
+          "Imitation Rhodium Plated"
+        ],
+        "镶嵌技术": [
+          "Customized"
+        ],
+        "首饰类型": [
+          "CHAMPIONSHIP RING"
+        ]
+      },
+      "spec_issues": [],
+      "detail_issues": [],
+      "attr_issues": [
+        "属性/提供模具制作和样品制作服务: 缺少 [] 多余 ['sample making']，期望=['mould making'] 实际=['sample making', 'mould making']"
+      ]
+    },
+    {
+      "mode": "blank_cat",
+      "mode_label": "空白类目发品",
+      "url": "https://post.alibaba.com/product/publish.htm?from=common&catId=201650701",
+      "pid": "607-1",
+      "group": "CHAMPIONSHIP RINGS",
+      "main_dir": "D:\\Alibaba\\Alibaba自动发品\\data\\主图\\607-1",
+      "fill_ok": true,
+      "elapsed_s": 197.6,
+      "step_timings_s": {
+        "1_打开页面": 3.05,
+        "2_上传图片": 1.65,
+        "3_标题关键词": 1.62,
+        "4_规格选择": 62.42,
+        "5_价格库存": 18.8,
+        "6_属性填写": 23.41,
+        "7_详情模块": 85.08,
+        "8_规格补全": 1.03,
+        "9_最终验收": 0.59,
+        "总计": 197.65
+      },
+      "attr_fill_report": [
+        {
+          "attr_name": "主石",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Crystal, Rhinestone"
+          ],
+          "duration_s": 0.531,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Crystal",
+            "Rhinestone"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Crystal, Rhinestone"
+          ]
+        },
+        {
+          "attr_name": "原产地",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "China"
+          ],
+          "duration_s": 0.522,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "China"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "China"
+          ]
+        },
+        {
+          "attr_name": "性别",
+          "select_type": "tag",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Men's"
+          ],
+          "duration_s": 0.919,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Men's"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Men's"
+          ]
+        },
+        {
+          "attr_name": "戒指类型",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ],
+          "duration_s": 0.531,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ]
+        },
+        {
+          "attr_name": "样式",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "CHAMPIONSHIP RING"
+          ],
+          "duration_s": 0.718,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "CHAMPIONSHIP RING"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "CHAMPIONSHIP RING"
+          ]
+        },
+        {
+          "attr_name": "首饰主要材质",
+          "select_type": "input",
+          "required": true,
+          "phase": "first_pass",
+          "values": [
+            "Alloy"
+          ],
+          "duration_s": 0.534,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Alloy"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Alloy"
+          ]
+        },
+        {
+          "attr_name": "使用场合",
+          "select_type": "tag",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Bridal Shower",
+            "Wedding",
+            "Party",
+            "Gift"
+          ],
+          "duration_s": 6.065,
+          "status": "partial",
+          "verify": "mismatch",
+          "actual": [],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Bridal Shower",
+            "Wedding",
+            "Party",
+            "Gift"
+          ]
+        },
+        {
+          "attr_name": "品牌",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "MC"
+          ],
+          "duration_s": 0.542,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "MC"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "MC"
+          ]
+        },
+        {
+          "attr_name": "型号",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "001"
+          ],
+          "duration_s": 0.546,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "001"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "001"
+          ]
+        },
+        {
+          "attr_name": "宗教分类",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "CHRISTIAN"
+          ],
+          "duration_s": 0.511,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "CHRISTIAN"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "CHRISTIAN"
+          ]
+        },
+        {
+          "attr_name": "宝石形状",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Round",
+            "Princess Cut"
+          ],
+          "duration_s": 0.479,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Round",
+            "Princess Cut"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Round",
+            "Princess Cut"
+          ]
+        },
+        {
+          "attr_name": "宝石生成方式",
+          "select_type": "single_search",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Lab Created"
+          ],
+          "duration_s": 0.617,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Lab Created"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Lab Created"
+          ]
+        },
+        {
+          "attr_name": "应用",
+          "select_type": "single_search",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Traveling"
+          ],
+          "duration_s": 0.613,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Traveling"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Traveling"
+          ]
+        },
+        {
+          "attr_name": "形状\\图案",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Lips"
+          ],
+          "duration_s": 0.492,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Lips"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Lips"
+          ]
+        },
+        {
+          "attr_name": "提供模具制作和样品制作服务",
+          "select_type": "single_search",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "sample making"
+          ],
+          "duration_s": 0.603,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "sample making"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "sample making"
+          ]
+        },
+        {
+          "attr_name": "证书类型",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [],
+          "duration_s": 0.004,
+          "status": "empty",
+          "verify": "pending",
+          "actual": [],
+          "error": "",
+          "original_values": [],
+          "planned_values": []
+        },
+        {
+          "attr_name": "诞生石",
+          "select_type": "single_search",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "February"
+          ],
+          "duration_s": 0.614,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "February"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "February"
+          ]
+        },
+        {
+          "attr_name": "镀层厚度",
+          "select_type": "tag",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "0.5μm",
+            "0.1μm"
+          ],
+          "duration_s": 1.501,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "0.5μm",
+            "0.1μm"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "0.5μm",
+            "0.1μm"
+          ]
+        },
+        {
+          "attr_name": "镀色",
+          "select_type": "tag",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "22k gold plated",
+            "Black Gun Plated",
+            "Imitation Rhodium Plated"
+          ],
+          "duration_s": 2.065,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "22k gold plated",
+            "Black Gun Plated",
+            "Imitation Rhodium Plated"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "22k gold plated",
+            "Black Gun Plated",
+            "Imitation Rhodium Plated"
+          ]
+        },
+        {
+          "attr_name": "镶嵌技术",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "Aperture setting"
+          ],
+          "duration_s": 0.479,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Aperture setting"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "Aperture setting"
+          ]
+        },
+        {
+          "attr_name": "首饰类型",
+          "select_type": "input",
+          "required": false,
+          "phase": "first_pass",
+          "values": [
+            "ring"
+          ],
+          "duration_s": 0.493,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "ring"
+          ],
+          "error": "",
+          "original_values": [],
+          "planned_values": [
+            "ring"
+          ]
+        },
+        {
+          "attr_name": "(批量验收)",
+          "select_type": "",
+          "required": false,
+          "phase": "batch_verify",
+          "values": [],
+          "duration_s": 0.207,
+          "status": "mismatch",
+          "verify": "mismatch",
+          "actual": [],
+          "error": ""
+        },
+        {
+          "attr_name": "使用场合",
+          "select_type": "tag",
+          "required": false,
+          "phase": "refill",
+          "values": [
+            "Bridal Shower",
+            "Wedding",
+            "Party",
+            "Gift"
+          ],
+          "duration_s": 2.477,
+          "status": "filled",
+          "verify": "ok",
+          "actual": [
+            "Bridal Shower",
+            "Wedding",
+            "Party",
+            "Gift"
+          ],
+          "error": ""
+        }
+      ],
+      "attr_value_audit": [
+        {
+          "attr_name": "原产地",
+          "select_type": "input",
+          "required": true,
+          "original_values": [],
+          "planned_values": [
+            "China"
+          ],
+          "final_values": [
+            "China"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "型号",
+          "select_type": "input",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "001"
+          ],
+          "final_values": [
+            "001"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "品牌",
+          "select_type": "input",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "MC"
+          ],
+          "final_values": [
+            "MC"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "首饰主要材质",
+          "select_type": "input",
+          "required": true,
+          "original_values": [],
+          "planned_values": [
+            "Alloy"
+          ],
+          "final_values": [
+            "Alloy"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "样式",
+          "select_type": "input",
+          "required": true,
+          "original_values": [],
+          "planned_values": [
+            "CHAMPIONSHIP RING"
+          ],
+          "final_values": [
+            "CHAMPIONSHIP RING"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "性别",
+          "select_type": "tag",
+          "required": true,
+          "original_values": [],
+          "planned_values": [
+            "Men's"
+          ],
+          "final_values": [
+            "Men's"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "主石",
+          "select_type": "input",
+          "required": true,
+          "original_values": [],
+          "planned_values": [
+            "Crystal, Rhinestone"
+          ],
+          "final_values": [
+            "Crystal",
+            "Rhinestone"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "戒指类型",
+          "select_type": "input",
+          "required": true,
+          "original_values": [],
+          "planned_values": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ],
+          "final_values": [
+            "Three Stone Rings",
+            "Cocktail Ring"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "首饰类型",
+          "select_type": "input",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "ring"
+          ],
+          "final_values": [
+            "ring"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "使用场合",
+          "select_type": "tag",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "Bridal Shower",
+            "Wedding",
+            "Party",
+            "Gift"
+          ],
+          "final_values": [
+            "Bridal Shower",
+            "Wedding",
+            "Party",
+            "Gift"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "镀色",
+          "select_type": "tag",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "22k gold plated",
+            "Black Gun Plated",
+            "Imitation Rhodium Plated"
+          ],
+          "final_values": [
+            "22k gold plated",
+            "Black Gun Plated",
+            "Imitation Rhodium Plated"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "形状\\图案",
+          "select_type": "input",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "Lips"
+          ],
+          "final_values": [
+            "Lips"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "宗教分类",
+          "select_type": "input",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "CHRISTIAN"
+          ],
+          "final_values": [
+            "CHRISTIAN"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "镶嵌技术",
+          "select_type": "input",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "Aperture setting"
+          ],
+          "final_values": [
+            "Aperture setting"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "提供模具制作和样品制作服务",
+          "select_type": "single_search",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "sample making"
+          ],
+          "final_values": [
+            "sample making"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "宝石生成方式",
+          "select_type": "single_search",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "Lab Created"
+          ],
+          "final_values": [
+            "Lab Created"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "宝石形状",
+          "select_type": "input",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "Round",
+            "Princess Cut"
+          ],
+          "final_values": [
+            "Round",
+            "Princess Cut"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "应用",
+          "select_type": "single_search",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "Traveling"
+          ],
+          "final_values": [
+            "Traveling"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "诞生石",
+          "select_type": "single_search",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "February"
+          ],
+          "final_values": [
+            "February"
+          ],
+          "match": true
+        },
+        {
+          "attr_name": "镀层厚度",
+          "select_type": "tag",
+          "required": false,
+          "original_values": [],
+          "planned_values": [
+            "0.5μm",
+            "0.1μm"
+          ],
+          "final_values": [
+            "0.5μm",
+            "0.1μm"
+          ],
+          "match": true
+        }
+      ],
+      "planned_attrs": {
+        "主石": [
+          "Crystal, Rhinestone"
+        ],
+        "原产地": [
+          "China"
+        ],
+        "性别": [
+          "Men's"
+        ],
+        "戒指类型": [
+          "Three Stone Rings",
+          "Cocktail Ring"
+        ],
+        "样式": [
+          "CHAMPIONSHIP RING"
+        ],
+        "首饰主要材质": [
+          "Alloy"
+        ],
+        "使用场合": [
+          "Bridal Shower",
+          "Wedding",
+          "Party",
+          "Gift"
+        ],
+        "品牌": [
+          "MC"
+        ],
+        "型号": [
+          "001"
+        ],
+        "宗教分类": [
+          "CHRISTIAN"
+        ],
+        "宝石形状": [
+          "Round",
+          "Princess Cut"
+        ],
+        "宝石生成方式": [
+          "Lab Created"
+        ],
+        "应用": [
+          "Traveling"
+        ],
+        "形状\\图案": [
+          "Lips"
+        ],
+        "提供模具制作和样品制作服务": [
+          "sample making"
+        ],
+        "诞生石": [
+          "February"
+        ],
+        "镀层厚度": [
+          "0.5μm",
+          "0.1μm"
+        ],
+        "镀色": [
+          "22k gold plated",
+          "Black Gun Plated",
+          "Imitation Rhodium Plated"
+        ],
+        "镶嵌技术": [
+          "Aperture setting"
+        ],
+        "首饰类型": [
+          "ring"
+        ]
+      },
+      "spec_issues": [],
+      "detail_issues": [],
+      "attr_issues": []
+    }
+  ],
+  "all_ok": true
+}

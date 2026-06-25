@@ -1,0 +1,25 @@
+{
+  "steps": [
+    {
+      "step": "scan",
+      "ok": true,
+      "elapsed_s": 282.7,
+      "workflows": 14
+    },
+    {
+      "step": "apply",
+      "ok": true,
+      "elapsed_s": 52.1,
+      "field_requirements": 16,
+      "compliance_fields": 3
+    },
+    {
+      "step": "publish",
+      "ok": false,
+      "elapsed_s": 885.9,
+      "current_step": "完成！成功发布 0/1 个产品"
+    }
+  ],
+  "total_elapsed_s": 1221.2,
+  "success": false
+}

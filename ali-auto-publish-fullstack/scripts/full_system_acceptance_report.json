@@ -1,0 +1,95 @@
+{
+  "started_at": "2026-06-09T18:15:00",
+  "backend": "http://127.0.0.1:8000",
+  "accounts": {
+    "admin": "admin11",
+    "member": "321654"
+  },
+  "suite_summary": {
+    "scripts_passed": 8,
+    "scripts_total": 10,
+    "overall_ok": false
+  },
+  "modules": [
+    {"name": "CRUD", "passed": 64, "total": 64, "status": "PASS"},
+    {"name": "comprehensive", "passed": 183, "total": 183, "status": "PASS"},
+    {"name": "full_system", "passed": 126, "total": 129, "status": "FAIL"},
+    {"name": "api", "passed": 50, "total": 50, "status": "PASS"},
+    {"name": "sync_and_points", "passed": 17, "total": 19, "status": "FAIL"},
+    {"name": "three_issues", "passed": 21, "total": 21, "status": "PASS"},
+    {"name": "dashboard_buttons", "passed": 51, "total": 51, "status": "PASS"},
+    {"name": "admin_runtime_sync", "passed": 8, "total": 8, "status": "PASS"},
+    {"name": "runtime_secrets_fix", "passed": 6, "total": 6, "status": "PASS"},
+    {"name": "cloud_key_type", "passed": 7, "total": 7, "status": "PASS"}
+  ],
+  "auth": {
+    "admin_login": true,
+    "member_login": true,
+    "admin_session_key": true,
+    "member_sync_local_session": true
+  },
+  "crud_coverage": {
+    "config": ["group_url", "attribute", "section", "reload", "pull_cloud_admin_runtime"],
+    "images": ["norm_config", "ai_gen_config"],
+    "membership_admin": ["user_create", "user_list", "user_update", "user_delete", "runtime_config"],
+    "membership_member": ["register", "recharge_list", "sync_local_session"],
+    "agent_telemetry": ["register", "heartbeat", "policy", "keywords_crud"],
+    "data_analysis": ["industry_keyword_delete", "dropdown_delete", "product360", "inspect_title"],
+    "upload_optimize_video": ["admin_and_member_start_stop_roundtrip"],
+    "task_control": ["admin_and_member_stop_pause_delete"]
+  },
+  "admin_features": {
+    "dashboard_reads": true,
+    "admin_panel_local": ["agents", "keywords"],
+    "admin_panel_cloud": ["users", "dashboard", "withdraws"],
+    "runtime_config_push": true,
+    "model_sync_to_members": true
+  },
+  "member_features": {
+    "all_pages_api": "183/183 PASS",
+    "points_consume": true,
+    "points_balance_sync": true
+  },
+  "linkage": {
+    "admin_runtime_sync": "PASS",
+    "cloud_key_pull": "PASS",
+    "member_pull_after_admin_push": "PASS",
+    "telemetry_upload_admin_view": "PASS"
+  },
+  "failures": [
+    {
+      "module": "full_system",
+      "check": "security:member_full_config_masked",
+      "issue": "会员读取全量 config 时 API Key 未脱敏"
+    },
+    {
+      "module": "full_system",
+      "check": "security:member_ai_keys_masked",
+      "issue": "会员读取 AI 配置时 Key 未脱敏"
+    },
+    {
+      "module": "full_system",
+      "check": "security:member_admin_runtime_masked",
+      "issue": "会员读取 admin-runtime 时 Key 未脱敏"
+    },
+    {
+      "module": "sync_and_points",
+      "check": "points:client_ledger_record",
+      "issue": "积分消费后客户端账本未写入记录"
+    },
+    {
+      "module": "sync_and_points",
+      "check": "points:local_mirror_ledger",
+      "issue": "本地镜像账本未同步消费记录"
+    }
+  ],
+  "manual_not_tested": [
+    "Cookie 浏览器登录",
+    "从平台拉取属性/规格",
+    "图片规范化/AI生图启动",
+    "数据下载/分析任务启动",
+    "充值/提现/支付回调",
+    "WebSocket 日志/任务"
+  ],
+  "log_file": "scripts/full_system_acceptance_run.log"
+}

@@ -1,0 +1,955 @@
+{
+  "summary": {
+    "total": 76,
+    "passed": 3,
+    "failed": 73,
+    "by_module": {
+      "配置管理": {
+        "pass": 2,
+        "fail": 6
+      },
+      "自动发品": {
+        "pass": 0,
+        "fail": 8
+      },
+      "数据分析": {
+        "pass": 0,
+        "fail": 12
+      },
+      "数据下载": {
+        "pass": 0,
+        "fail": 13
+      },
+      "图片管理": {
+        "pass": 0,
+        "fail": 14
+      },
+      "视频绑定": {
+        "pass": 0,
+        "fail": 5
+      },
+      "任务管理": {
+        "pass": 0,
+        "fail": 1
+      },
+      "会员系统": {
+        "pass": 0,
+        "fail": 12
+      },
+      "认证流程": {
+        "pass": 1,
+        "fail": 2
+      }
+    }
+  },
+  "failures": [
+    {
+      "module": "配置管理",
+      "name": "读取全部配置",
+      "method": "GET",
+      "path": "/api/config/",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "配置管理",
+      "name": "读取管理员运行时配置",
+      "method": "GET",
+      "path": "/api/config/admin-runtime",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "配置管理",
+      "name": "读取配置模板",
+      "method": "GET",
+      "path": "/api/config/template",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "配置管理",
+      "name": "读取 data_analysis 分区",
+      "method": "GET",
+      "path": "/api/config/section/data_analysis",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "配置管理",
+      "name": "读取属性列表",
+      "method": "GET",
+      "path": "/api/config/attributes/list",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "配置管理",
+      "name": "读取分组链接列表",
+      "method": "GET",
+      "path": "/api/config/group-urls/list",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "自动发品",
+      "name": "读取任务状态",
+      "method": "GET",
+      "path": "/api/upload/status",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "自动发品",
+      "name": "读取可发品列表",
+      "method": "GET",
+      "path": "/api/upload/products/available",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "自动发品",
+      "name": "读取已发品列表",
+      "method": "GET",
+      "path": "/api/upload/products/published",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "自动发品",
+      "name": "读取优化任务状态",
+      "method": "GET",
+      "path": "/api/upload/optimize/status",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "自动发品",
+      "name": "读取优化列表",
+      "method": "GET",
+      "path": "/api/upload/optimize/list",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "自动发品",
+      "name": "读取今日失败优化",
+      "method": "GET",
+      "path": "/api/upload/optimize/failed-today",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "自动发品",
+      "name": "停止空闲发品任务",
+      "method": "POST",
+      "path": "/api/upload/stop",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "自动发品",
+      "name": "停止空闲优化任务",
+      "method": "POST",
+      "path": "/api/upload/optimize/stop",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "数据概览",
+      "method": "GET",
+      "path": "/api/analysis/overview",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "积分定价",
+      "method": "GET",
+      "path": "/api/analysis/points-pricing",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "流量波动异动",
+      "method": "GET",
+      "path": "/api/analysis/volatility/anomaly",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "诊断表",
+      "method": "GET",
+      "path": "/api/analysis/diagnosis/table",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "流量AI结果",
+      "method": "GET",
+      "path": "/api/analysis/traffic-ai/result",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "标题优化结果",
+      "method": "GET",
+      "path": "/api/analysis/title-optimize/results",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "新发链接监控",
+      "method": "GET",
+      "path": "/api/analysis/new-links/monitor?sheet_name=全店曝光次数",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "统计表",
+      "method": "GET",
+      "path": "/api/analysis/statistics/table",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "P4P表",
+      "method": "GET",
+      "path": "/api/analysis/p4p/table",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "任务状态 comprehensive",
+      "method": "GET",
+      "path": "/api/analysis/status/comprehensive",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "任务状态 title_optimize",
+      "method": "GET",
+      "path": "/api/analysis/status/title_optimize",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据分析",
+      "name": "任务状态 traffic_ai",
+      "method": "GET",
+      "path": "/api/analysis/status/traffic_ai",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "全部下载状态",
+      "method": "GET",
+      "path": "/api/data/download/status",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "文件列表",
+      "method": "GET",
+      "path": "/api/data/files",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "关键词异动",
+      "method": "GET",
+      "path": "/api/data/keyword/anomaly/latest",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "关键词汇总",
+      "method": "GET",
+      "path": "/api/data/keyword/summary/latest",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "行业关键词",
+      "method": "GET",
+      "path": "/api/data/industry-keyword/latest",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "行业下拉词",
+      "method": "GET",
+      "path": "/api/data/industry-keyword/dropdown/latest",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "店铺概览",
+      "method": "GET",
+      "path": "/api/data/store/overview/latest?include_details=false",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "店铺周汇总",
+      "method": "GET",
+      "path": "/api/data/store/summary/table",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "产品360表",
+      "method": "GET",
+      "path": "/api/data/product360/table",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "产品运营表",
+      "method": "GET",
+      "path": "/api/data/product-operate/table",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "流量渠道概览",
+      "method": "GET",
+      "path": "/api/data/traffic-channel/overview",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "店铺图片列表",
+      "method": "GET",
+      "path": "/api/data/store-image/list",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "数据下载",
+      "name": "产品360流量渠道",
+      "method": "POST",
+      "path": "/api/data/product360/traffic-channels",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "图片分组",
+      "method": "GET",
+      "path": "/api/images/groups",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "图片统计",
+      "method": "GET",
+      "path": "/api/images/stats",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "规范化配置",
+      "method": "GET",
+      "path": "/api/images/config",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "规范化状态",
+      "method": "GET",
+      "path": "/api/images/normalize/status",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "规范化日志",
+      "method": "GET",
+      "path": "/api/images/logs/recent?limit=10",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "AI生图配置",
+      "method": "GET",
+      "path": "/api/images/ai-gen/config",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "AI生图输入",
+      "method": "GET",
+      "path": "/api/images/ai-gen/inputs",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "AI生图输出",
+      "method": "GET",
+      "path": "/api/images/ai-gen/outputs",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "AI生图积分定价",
+      "method": "GET",
+      "path": "/api/images/ai-gen/points-pricing",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "AI生图积分估算",
+      "method": "GET",
+      "path": "/api/images/ai-gen/points-estimate",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "AI生图状态",
+      "method": "GET",
+      "path": "/api/images/ai-gen/status",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "AI生图日志",
+      "method": "GET",
+      "path": "/api/images/ai-gen/logs/recent?limit=10",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "停止空闲规范化",
+      "method": "POST",
+      "path": "/api/images/normalize/stop",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "图片管理",
+      "name": "停止空闲AI生图",
+      "method": "POST",
+      "path": "/api/images/ai-gen/stop",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "视频绑定",
+      "name": "任务状态",
+      "method": "GET",
+      "path": "/api/video-bind/status",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "视频绑定",
+      "name": "新发链接预览",
+      "method": "GET",
+      "path": "/api/video-bind/new-links-preview",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "视频绑定",
+      "name": "空闲时stop",
+      "method": "POST",
+      "path": "/api/video-bind/stop",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "视频绑定",
+      "name": "空闲时pause",
+      "method": "POST",
+      "path": "/api/video-bind/pause",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "视频绑定",
+      "name": "空闲时resume",
+      "method": "POST",
+      "path": "/api/video-bind/resume",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "任务管理",
+      "name": "任务列表",
+      "method": "GET",
+      "path": "/api/tasks/list",
+      "status": 401,
+      "ok": false,
+      "note": "",
+      "detail": {
+        "message": "缺少Authorization，请先登录会员中心",
+        "reason": "missing_authorization"
+      }
+    },
+    {
+      "module": "会员系统",
+      "name": "用户列表",
+      "method": "GET",
+      "path": "/api/membership/admin/users?limit=20",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "节点列表",
+      "method": "GET",
+      "path": "/api/membership/admin/agents?limit=20",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "关键词回传",
+      "method": "GET",
+      "path": "/api/membership/admin/telemetry/keywords?limit=20",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "提现列表",
+      "method": "GET",
+      "path": "/api/membership/admin/withdraw/list?limit=50",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "管理仪表盘",
+      "method": "GET",
+      "path": "/api/membership/admin/dashboard?days=30",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "创建测试用户",
+      "method": "POST",
+      "path": "/api/membership/admin/users/create",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "更新/删除测试用户",
+      "method": "POST",
+      "path": "/api/membership/admin/users/*",
+      "status": 0,
+      "ok": false,
+      "note": "创建用户后未拿到 user_id",
+      "detail": null
+    },
+    {
+      "module": "会员系统",
+      "name": "注册节点",
+      "method": "POST",
+      "path": "/api/membership/agent/register",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "节点心跳",
+      "method": "POST",
+      "path": "/api/membership/agent/heartbeat",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "读取节点策略",
+      "method": "GET",
+      "path": "/api/membership/agent/policy",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "更新节点策略",
+      "method": "POST",
+      "path": "/api/membership/admin/agents/policy",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "会员系统",
+      "name": "批量删除关键词回传(空)",
+      "method": "POST",
+      "path": "/api/membership/admin/telemetry/keywords/batch/delete",
+      "status": 403,
+      "ok": false,
+      "note": "",
+      "detail": "管理员权限不足"
+    },
+    {
+      "module": "认证流程",
+      "name": "用户登录",
+      "method": "POST",
+      "path": "/api/membership/auth/login",
+      "status": 400,
+      "ok": false,
+      "note": "",
+      "detail": "账号或密码错误"
+    },
+    {
+      "module": "认证流程",
+      "name": "会员 token 后续测试",
+      "method": "-",
+      "path": "-",
+      "status": 0,
+      "ok": false,
+      "note": "登录未返回 token",
+      "detail": null
+    }
+  ],
+  "static_issues": []
+}

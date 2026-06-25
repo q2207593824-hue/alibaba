@@ -1,0 +1,311 @@
+{
+  "apply": {
+    "success": true,
+    "group_name": "accept-test-group",
+    "url": "https://post.alibaba.com/product/publish.htm?pubType=similarPost&itemId=1601212500292&behavior=copyNew",
+    "ready_for_publish": true,
+    "readiness_issues": [],
+    "workflow_ids": [
+      "product-images",
+      "product-title",
+      "product-keywords",
+      "product-attributes",
+      "ladder-price",
+      "sku-quantity",
+      "spec-color",
+      "spec-size",
+      "detail-images",
+      "text-detail",
+      "company-desc",
+      "compliance-fields"
+    ],
+    "spec_names": [
+      "Color",
+      "Ring Size"
+    ],
+    "spec_hint_updates": 2,
+    "platform_sync": {
+      "skipped": true
+    },
+    "profile": {
+      "url": "https://post.alibaba.com/product/publish.htm?pubType=similarPost&itemId=1601212500292&behavior=copyNew",
+      "group_name": "accept-test-group",
+      "page_type": "copy",
+      "page_type_label": "copy publish",
+      "scanned_at": "2026-06-07 21:14:00",
+      "element_count": 148,
+      "workflow_count": 12,
+      "workflows": [
+        {
+          "id": "product-images",
+          "title": "Product Images",
+          "type": "image_upload",
+          "operable": false,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "product-title",
+          "title": "Title",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "productTitle",
+          "spec_name": ""
+        },
+        {
+          "id": "product-keywords",
+          "title": "Keywords",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "product-attributes",
+          "title": "Attributes",
+          "type": "attributes",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "ladder-price",
+          "title": "Ladder Price",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "sku-quantity",
+          "title": "SKU",
+          "type": "sku",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "spec-color",
+          "title": "Spec Color",
+          "type": "spec_attribute",
+          "operable": true,
+          "interaction": "value_rows",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": "Color"
+        },
+        {
+          "id": "spec-size",
+          "title": "Spec Size",
+          "type": "spec_attribute",
+          "operable": true,
+          "interaction": "checkbox_grid",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": "Ring Size"
+        },
+        {
+          "id": "detail-images",
+          "title": "Detail Images",
+          "type": "image_upload",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "text-detail",
+          "title": "Text Detail",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "company-desc",
+          "title": "Company",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "compliance-fields",
+          "title": "Compliance",
+          "type": "compliance",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        }
+      ],
+      "ready_for_publish": true,
+      "readiness_issues": []
+    },
+    "logs": [
+      "group URL bound",
+      "merged 2 spec hints from scan",
+      "scan profile saved; publish ready=yes"
+    ]
+  },
+  "validate": {
+    "success": true,
+    "group_name": "accept-test-group",
+    "ready_for_publish": true,
+    "issues": [],
+    "profile": {
+      "url": "https://post.alibaba.com/product/publish.htm?pubType=similarPost&itemId=1601212500292&behavior=copyNew",
+      "group_name": "accept-test-group",
+      "page_type": "copy",
+      "page_type_label": "copy publish",
+      "scanned_at": "2026-06-07 21:14:00",
+      "element_count": 148,
+      "workflow_count": 12,
+      "workflows": [
+        {
+          "id": "product-images",
+          "title": "Product Images",
+          "type": "image_upload",
+          "operable": false,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "product-title",
+          "title": "Title",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "productTitle",
+          "spec_name": ""
+        },
+        {
+          "id": "product-keywords",
+          "title": "Keywords",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "product-attributes",
+          "title": "Attributes",
+          "type": "attributes",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "ladder-price",
+          "title": "Ladder Price",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "sku-quantity",
+          "title": "SKU",
+          "type": "sku",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "spec-color",
+          "title": "Spec Color",
+          "type": "spec_attribute",
+          "operable": true,
+          "interaction": "value_rows",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": "Color"
+        },
+        {
+          "id": "spec-size",
+          "title": "Spec Size",
+          "type": "spec_attribute",
+          "operable": true,
+          "interaction": "checkbox_grid",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": "Ring Size"
+        },
+        {
+          "id": "detail-images",
+          "title": "Detail Images",
+          "type": "image_upload",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "text-detail",
+          "title": "Text Detail",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "company-desc",
+          "title": "Company",
+          "type": "form_field",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        },
+        {
+          "id": "compliance-fields",
+          "title": "Compliance",
+          "type": "compliance",
+          "operable": true,
+          "interaction": "",
+          "automation_module": "",
+          "struct_id": "",
+          "spec_name": ""
+        }
+      ],
+      "ready_for_publish": true,
+      "readiness_issues": []
+    },
+    "attribute_count": 34,
+    "spec_count": 2,
+    "posting_url": "https://post.alibaba.com/product/publish.htm?pubType=similarPost&itemId=1601212500292&behavior=copyNew"
+  }
+}

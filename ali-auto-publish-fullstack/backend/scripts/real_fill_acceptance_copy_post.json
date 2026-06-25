@@ -1,0 +1,28 @@
+{
+  "mode": "copy_post",
+  "url": "https://post.alibaba.com/product/publish.htm?spm=a2700.micro_product_manager.0.0.7edc3e5f0vOXUe&pubType=similarPost&itemId=1601824639750&behavior=copyNew",
+  "pid": "607-1",
+  "group": "CHAMPIONSHIP RINGS",
+  "main_dir": "D:\\Alibaba\\Alibaba自动发品\\data\\主图\\607-1",
+  "fill_ok": true,
+  "elapsed_s": 293.1,
+  "step_timings_s": {
+    "1_打开页面": 5.27,
+    "2_上传图片": 1.71,
+    "3_标题关键词": 1.47,
+    "4_规格选择": 7.84,
+    "5_价格库存": 22.12,
+    "6_属性填写": 122.89,
+    "7_详情模块": 100.69,
+    "8_合规填写": 30.42,
+    "9_最终验收": 0.66,
+    "总计": 293.07
+  },
+  "spec_issues": [
+    "规格/戒指尺寸: 期望勾选 ['11', '12', '13'] 实际=['', '', '']"
+  ],
+  "detail_issues": [
+    "详情/细节图: 提供 4 张，页面无有效预览（裂图）"
+  ],
+  "attr_issues": []
+}

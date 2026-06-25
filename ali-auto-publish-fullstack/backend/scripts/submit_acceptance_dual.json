@@ -1,0 +1,27 @@
+{
+  "started_at": "2026-06-09T17:24:54",
+  "runs": [
+    {
+      "mode": "blank",
+      "url": "https://post.alibaba.com/product/publish.htm?from=common&catId=201650701",
+      "pid": "607-1",
+      "group": "CHAMPIONSHIP RINGS",
+      "main_title": "championship rings basketball diamond shiny for basketball team core player match mvp honor reward collection",
+      "submit_ok": true,
+      "primary_id": "1601824639750",
+      "elapsed_s": 483.9
+    },
+    {
+      "mode": "copy_post",
+      "url": "https://post.alibaba.com/product/publish.htm?spm=a2700.micro_product_manager.0.0.5d083e5fuH2w2X&pubType=similarPost&itemId=1601823011019&behavior=copyNew",
+      "pid": "607-2",
+      "group": "CHAMPIONSHIP RINGS",
+      "main_title": "championship rings basketball zinc alloy durable for middle school basketball team champion reward collection",
+      "submit_ok": false,
+      "primary_id": null,
+      "elapsed_s": 398.7
+    }
+  ],
+  "all_ok": false,
+  "finished_at": "2026-06-09T17:39:51"
+}
