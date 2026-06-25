@@ -542,7 +542,11 @@ export default function Dashboard() {
       }
     };
 
-    const timer = setInterval(syncPublishState, 4000);
+    const timer = setInterval(() => {
+      // 页面不可见时暂停轮询，节省网络和服务器资源
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      syncPublishState();
+    }, 4000);
     return () => {
       destroyed = true;
       clearInterval(timer);
@@ -737,12 +741,6 @@ export default function Dashboard() {
       }
     };
 
-    loadP4PBlocks();
-  }, [sharedCfg]);
-
-  useEffect(() => {
-    if (!sharedCfg) return;
-
     const loadRankRows = async () => {
       try {
         setRankLoading(true);
@@ -752,18 +750,15 @@ export default function Dashboard() {
           getConfigSectionSync("data_download")?.product360_excel_result_dir ||
           getConfigSectionSync("data_download")?.product360_output_dir ||
           "";
-
         const res = await dataApi.getProduct360Table(excelDir, "产品详细信息");
         const payload = res?.data || res;
         const data = payload?.data || payload;
         const rows = Array.isArray(data?.rows) ? data.rows : [];
         const cols: string[] = Array.isArray(data?.columns) ? data.columns : [];
-
         const byIdx = (row: any, idx: number) => {
           const k = cols[idx];
           return k ? row?.[k] : undefined;
         };
-
         const next = rows
           .map((r: any) => ({
             id: String(r?.["产品ID"] ?? byIdx(r, 1) ?? "").trim(),
@@ -778,7 +773,6 @@ export default function Dashboard() {
             return String(a.rank).localeCompare(String(b.rank));
           })
           .slice(0, 200);
-
         setRankRows(next);
       } catch {
         // 保留已有排名数据
@@ -787,8 +781,11 @@ export default function Dashboard() {
       }
     };
 
-    loadRankRows();
+    // 两个加载函数并行执行，不再先后等待
+    void Promise.all([loadP4PBlocks(), loadRankRows()]);
   }, [sharedCfg]);
+
+
 
   useEffect(() => {
     const loadAnomalyRows = async () => {

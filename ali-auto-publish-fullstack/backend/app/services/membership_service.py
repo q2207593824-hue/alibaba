@@ -1804,14 +1804,18 @@ def _deduct_points_amount(
             row = cur.execute("SELECT username FROM users WHERE id=? LIMIT 1", (user_id,)).fetchone()
             uname = str(row["username"] or "").strip() if row else ""
             conn.commit()
-            sync_points_balance_to_cloud(user_id, new_balance, username=uname)
-            return {"amount": amount, "deducted": amount, "balance": new_balance}
         except Exception:
             conn.rollback()
             raise
         finally:
             conn.close()
 
+    try:
+        sync_points_balance_to_cloud(user_id, new_balance, username=uname)
+    except Exception as e:
+        logger.warning(f"积分扣减后云端同步失败: {e}")
+        
+    return {"amount": amount, "deducted": amount, "balance": new_balance}
 
 def _require_cloud_billing_token(token: str) -> str:
     """云端积分模式下必须有有效 Bearer，禁止静默回退本地扣费。"""
