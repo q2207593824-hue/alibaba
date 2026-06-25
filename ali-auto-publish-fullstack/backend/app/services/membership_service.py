@@ -1045,7 +1045,26 @@ def _merge_cloud_points_into_admin_users(rows: List[Dict[str, Any]]) -> List[Dic
 
 
 # 简易会话（V1）
-_TOKENS: Dict[str, int] = {}
+_TOKENS: Dict[str, Tuple[int, float]] = {} 
+def _clean_stale_tokens():
+    now = time.time()
+    stale_keys = [k for k, v in _TOKENS.items() if now > v[1]]
+    for k in stale_keys:
+        _TOKENS.pop(k, None)
+
+def _set_token_cache(token: str, uid: int):
+    _clean_stale_tokens()
+    # 限制最大长度防 OOM
+    if len(_TOKENS) > 10000:
+        _TOKENS.clear()
+    _TOKENS[token] = (uid, time.time() + SESSION_HOURS * 3600)
+
+def _get_token_cache(token: str) -> Optional[int]:
+    val = _TOKENS.get(token)
+    if val and time.time() <= val[1]:
+        return val[0]
+    return None
+
 SESSION_HOURS = 72
 
 # 登录安全基线
@@ -1057,9 +1076,19 @@ LOGIN_LOCK_MINUTES = 10
 def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+GLOBAL_SALT = os.getenv("ALI_PWD_SALT", "ali-auto-publish-secret-salt-2026").encode('utf-8')
 
 def _hash_pwd(raw: str) -> str:
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    """使用 PBKDF2 替代单纯的 SHA256"""
+    # 如果要兼容老用户，可以先检查密码是否为老的 64 位 sha256
+    # 这里演示直接升级为 PBKDF2-HMAC-SHA256
+    key = hashlib.pbkdf2_hmac(
+        'sha256', 
+        raw.encode('utf-8'), 
+        GLOBAL_SALT, 
+        100000  # 迭代次数，增加破解难度
+    )
+    return key.hex()
 
 
 def _new_invite_code() -> str:

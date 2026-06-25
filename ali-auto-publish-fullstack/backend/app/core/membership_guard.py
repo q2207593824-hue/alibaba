@@ -2,6 +2,7 @@
 from typing import Optional, Dict, Any
 from fastapi import Header, HTTPException, Request
 import hashlib
+import asyncio
 import os
 import time
 
@@ -265,7 +266,7 @@ def require_membership_or_trial(
     state: Optional[Dict[str, Any]] = None
     local_eval_error = ""
     try:
-        state = evaluate_access_by_token(token)
+        state = await asyncio.to_thread(evaluate_access_by_token, token)
         _dbg(f"local_eval ok allowed={bool((state or {}).get('allowed'))} reason={str((state or {}).get('reason') or '')}")
     except Exception as e:
         local_eval_error = str(e)

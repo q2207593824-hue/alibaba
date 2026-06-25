@@ -354,7 +354,15 @@ async def api_login(req: LoginReq, request: Request):
     try:
         ip = (request.client.host if request.client else "") or ""
         ua = request.headers.get("user-agent", "")
-        data = unified_login(req.username.strip(), str(req.password or "").strip(), ip=ip, user_agent=ua)
+        # 使用 asyncio.to_thread 将同步函数放入线程池执行
+        # 事件循环不再被阻塞，其他请求可以正常处理
+        data = await asyncio.to_thread(
+            unified_login,
+            req.username.strip(),
+            str(req.password or "").strip(),
+            ip=ip,
+            user_agent=ua
+        )
         return {"success": True, "data": data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -398,7 +406,7 @@ async def api_sync_local_session(authorization: Optional[str] = Header(default=N
     """浏览器直连云端登录后，把 token 写入本地 user_sessions，供 /api/config 等鉴权。"""
     try:
         token = _token(authorization)
-        cloud = fetch_cloud_me_cached(token, allow_stale=False)
+        cloud = await asyncio.to_thread(fetch_cloud_me_cached, token, allow_stale=False)
         if not isinstance(cloud, dict):
             raise ValueError("无法从云端校验登录态")
         uname = str(cloud.get("username") or "").strip()

@@ -7,6 +7,8 @@ import os
 import sys
 import json
 import re
+import shutil
+import time
 import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -813,17 +815,24 @@ class ConfigManager:
         return self._config
 
     def load(self) -> AppConfig:
-        """从 JSON 文件加载配置，不存在则使用默认值"""
         if os.path.exists(CONFIG_FILE):
             try:
-                # utf-8-sig：兼容 Windows 记事本等保存的 UTF-8 BOM，避免解析失败后整份恢复默认
                 with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
                     data = json.load(f)
                 old_root = str((data.get("paths") or {}).get("project_files_root") or "")
                 self._config = AppConfig(**data)
                 _apply_project_root_paths(self._config, old_root=old_root)
                 _apply_env_overrides(self._config)
-            except Exception:
+            except Exception as e:
+                # 1. 备份损坏的文件，防止数据彻底丢失
+                backup_file = f"{CONFIG_FILE}.{int(time.time())}.bak"
+                try:
+                    shutil.copy2(CONFIG_FILE, backup_file)
+                    print(f"配置文件解析失败，已备份至: {backup_file}, 错误: {e}")
+                except Exception:
+                    pass
+                
+                # 2. 生成默认配置
                 self._config = self._load_defaults()
                 self.save()
         else:

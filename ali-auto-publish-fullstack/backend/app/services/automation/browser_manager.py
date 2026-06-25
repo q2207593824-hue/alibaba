@@ -14,6 +14,7 @@ import time
 import pickle
 import logging
 import shutil
+import atexit
 import threading
 from pathlib import Path
 from typing import List, Optional
@@ -607,3 +608,6 @@ class BrowserManager:
         except Exception:
             pass
         self.driver = None
+
+
+atexit.register(BrowserManager.shutdown_shared)

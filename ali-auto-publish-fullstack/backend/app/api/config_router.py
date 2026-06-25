@@ -6,6 +6,7 @@
 from typing import Any, Dict, Optional
 import os
 import time
+import asyncio
 import json
 import pickle
 import requests
@@ -498,7 +499,7 @@ async def fetch_attributes_from_platform(_=Depends(require_membership_or_trial))
             except Exception:
                 pass
         browser.refresh()
-        time.sleep(1.2)
+        await asyncio.sleep(1.2)
         logger.info("[属性抓取] Cookie注入完成")
 
         for idx, url in enumerate(target_urls, start=1):
@@ -744,7 +745,7 @@ async def fetch_specifications_from_platform(_=Depends(require_membership_or_tri
             except Exception:
                 pass
         browser.refresh()
-        time.sleep(1.2)
+        await asyncio.sleep(1.2)
         logger.info("[规格抓取] Cookie注入完成")
 
         for idx, (group_name, target_url) in enumerate(target_urls.items(), start=1):
@@ -760,11 +761,13 @@ async def fetch_specifications_from_platform(_=Depends(require_membership_or_tri
                 raise HTTPException(status_code=400, detail="Cookie已失效，请先在Cookie管理重新登录")
 
             try:
-                WebDriverWait(browser, 30).until(
-                    EC.presence_of_element_located((By.ID, "struct-specification"))
-                )
-                # 对齐老脚本：规格区通常异步渲染，增加等待
-                time.sleep(8)
+                from fastapi.concurrency import run_in_threadpool
+                def wait_element():
+                    WebDriverWait(browser, 30).until(
+                        EC.presence_of_element_located((By.ID, "struct-specification"))
+                    )
+                await run_in_threadpool(wait_elemen t)
+                await asyncio.sleep(8)
             except Exception:
                 logger.warning(f"[规格抓取] 规格区域未加载成功，跳过类目: {group_name}")
                 continue
