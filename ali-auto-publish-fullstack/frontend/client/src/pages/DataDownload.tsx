@@ -85,13 +85,19 @@ export default function DataDownload() {
 
   const loadConfig = async () => {
     try {
-      const dd = (await configApi.getSection("data_download")) || {};
+      const [dd, da] = await Promise.all([
+        configApi.getSection("data_download").catch(() => ({})),
+        configApi.getSection("data_analysis").catch(() => ({}))
+      ]);
       const dir = dd?.product360_output_dir || "";
       const jsonDir = dd?.product360_json_dir || (dir ? `${dir}\\Json文件` : "");
       const keywordDir = dd?.product360_keyword_json_dir || (dir ? `${dir}\\关键词json` : "");
       const excelDir = dd?.product360_excel_result_dir || (dir ? `${dir}\\Excel结果` : "");
-      const dailyDir = dd?.daily_output_dir || "";
-      const weeklyDir = dd?.weekly_output_dir || "";
+      
+      // 联动：优先读取 data_analysis 中的 source_dir 和 single_analysis_input_file
+      const dailyDir = da?.source_dir || dd?.daily_output_dir || "";
+      const weeklyDir = da?.single_analysis_input_file || dd?.weekly_output_dir || "";
+      
       setOutputDir(dir);
       setProduct360JsonDir(jsonDir);
       setProduct360KeywordJsonDir(keywordDir);
@@ -121,13 +127,26 @@ export default function DataDownload() {
 
   const saveDailyConfig = async () => {
     try {
-      const current = (await configApi.getSection("data_download")) || {};
-      await configApi.updateSection("data_download", {
-        ...current,
-        daily_output_dir: dailyOutputDir,
-        weekly_output_dir: weeklyOutputDir,
-      });
-      toast.success("日数据配置已保存");
+      const [currentDD, currentDA] = await Promise.all([
+        configApi.getSection("data_download").catch(() => ({})),
+        configApi.getSection("data_analysis").catch(() => ({}))
+      ]);
+      
+      // 同时更新 data_download 和 data_analysis，实现双向绑定
+      await Promise.all([
+        configApi.updateSection("data_download", {
+          ...currentDD,
+          daily_output_dir: dailyOutputDir,
+          weekly_output_dir: weeklyOutputDir,
+        }),
+        configApi.updateSection("data_analysis", {
+          ...currentDA,
+          source_dir: dailyOutputDir,
+          single_analysis_input_file: weeklyOutputDir,
+        })
+      ]);
+      
+      toast.success("日数据与综合分析目录已同步保存");
     } catch (e: any) {
       toast.error(e.message || "保存失败");
     }
