@@ -1076,19 +1076,8 @@ LOGIN_LOCK_MINUTES = 10
 def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-GLOBAL_SALT = os.getenv("ALI_PWD_SALT", "ali-auto-publish-secret-salt-2026").encode('utf-8')
-
 def _hash_pwd(raw: str) -> str:
-    """使用 PBKDF2 替代单纯的 SHA256"""
-    # 如果要兼容老用户，可以先检查密码是否为老的 64 位 sha256
-    # 这里演示直接升级为 PBKDF2-HMAC-SHA256
-    key = hashlib.pbkdf2_hmac(
-        'sha256', 
-        raw.encode('utf-8'), 
-        GLOBAL_SALT, 
-        100000  # 迭代次数，增加破解难度
-    )
-    return key.hex()
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _new_invite_code() -> str:
