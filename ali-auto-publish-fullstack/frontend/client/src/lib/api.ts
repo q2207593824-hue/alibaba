@@ -653,7 +653,7 @@ export function startCloudAdminConfigWatcher(active: boolean): void {
 
   void pullCloudAdminRuntimeCoordinated({ force: true });
   void tick();
-  const timer = window.setInterval(tick, 20000);
+  const timer = window.setInterval(tick, 120000);
   stopCloudAdminConfigWatcher = () => window.clearInterval(timer);
 }
 

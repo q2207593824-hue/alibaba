@@ -1491,6 +1491,12 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_last_seen ON user_sessions(last_seen_at)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user_last_seen ON user_sessions(user_id, last_seen_at)")
+        
+        # [性能优化] 为流水和订单表补充索引，解决全表扫描导致的严重卡顿
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_points_ledger_user_id ON user_points_ledger(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_recharge_orders_user_id ON recharge_orders(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_withdraw_orders_user_id ON withdraw_orders(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_withdraw_orders_status ON withdraw_orders(status)")
     except Exception:
         pass
 
@@ -3634,11 +3640,28 @@ def get_admin_dashboard_stats(days: int = 30) -> Dict[str, Any]:
     today_paid_orders = int(cur.execute("SELECT COUNT(1) AS c FROM recharge_orders WHERE status='paid' AND date(paid_at)=?", (today,)).fetchone()["c"])
 
     trend = []
+    # [性能优化] 废弃循环查询，改为单次 GROUP BY 查询
+    start_date = (datetime.now() - timedelta(days=window_days)).strftime("%Y-%m-%d")
+    
+    recharge_rows = cur.execute(
+        "SELECT date(paid_at) as day, SUM(amount_yuan) as total FROM recharge_orders WHERE status='paid' AND date(paid_at) > ? GROUP BY date(paid_at)", 
+        (start_date,)
+    ).fetchall()
+    recharge_map = {row["day"]: float(row["total"] or 0) for row in recharge_rows}
+    
+    withdraw_rows = cur.execute(
+        "SELECT date(updated_at) as day, SUM(amount_yuan) as total FROM withdraw_orders WHERE status='paid' AND date(updated_at) > ? GROUP BY date(updated_at)", 
+        (start_date,)
+    ).fetchall()
+    withdraw_map = {row["day"]: float(row["total"] or 0) for row in withdraw_rows}
+
     for i in range(window_days - 1, -1, -1):
         day = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
-        day_recharge = float(cur.execute("SELECT COALESCE(SUM(amount_yuan),0) AS s FROM recharge_orders WHERE status='paid' AND date(paid_at)=?", (day,)).fetchone()["s"])
-        day_withdraw = float(cur.execute("SELECT COALESCE(SUM(amount_yuan),0) AS s FROM withdraw_orders WHERE status='paid' AND date(updated_at)=?", (day,)).fetchone()["s"])
-        trend.append({"date": day, "recharge": day_recharge, "withdraw": day_withdraw})
+        trend.append({
+            "date": day, 
+            "recharge": recharge_map.get(day, 0.0), 
+            "withdraw": withdraw_map.get(day, 0.0)
+        })
 
     conn.close()
     return {

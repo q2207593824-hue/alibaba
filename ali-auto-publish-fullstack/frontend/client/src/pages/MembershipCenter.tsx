@@ -360,7 +360,7 @@ export default function MembershipCenter() {
     if (!(adminConsoleLoggedIn && !!adminKey)) return;
     const t = window.setInterval(() => {
       void loadAdminSummary();
-    }, 15000);
+    }, 60000);
     return () => window.clearInterval(t);
   }, [adminConsoleLoggedIn, adminKey]);
 
@@ -429,9 +429,8 @@ export default function MembershipCenter() {
         // ignore
       }
       setMembershipToken(t);
-      await loadMe();
-      await loadLedger();
-      await loadOrders();
+      // [性能优化] 将串行请求改为并行，大幅缩短阻塞时间
+      await Promise.all([loadMe(), loadLedger(), loadOrders()]);
       toast.success("注册成功，已自动登录");
       setLocation("/");
     } catch (e: any) {
