@@ -201,7 +201,7 @@ def _extract_device_id(request: Request) -> str:
         return ""
 
 
-def require_membership_or_trial(
+async def require_membership_or_trial(
     request: Request,
     authorization: Optional[str] = Header(default=None),
     x_admin_key: Optional[str] = Header(default=None, alias="X-Admin-Key"),

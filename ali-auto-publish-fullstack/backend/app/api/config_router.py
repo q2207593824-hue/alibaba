@@ -766,7 +766,7 @@ async def fetch_specifications_from_platform(_=Depends(require_membership_or_tri
                     WebDriverWait(browser, 30).until(
                         EC.presence_of_element_located((By.ID, "struct-specification"))
                     )
-                await run_in_threadpool(wait_elemen t)
+                await run_in_threadpool(wait_element)
                 await asyncio.sleep(8)
             except Exception:
                 logger.warning(f"[规格抓取] 规格区域未加载成功，跳过类目: {group_name}")
@@ -807,12 +807,12 @@ async def fetch_specifications_from_platform(_=Depends(require_membership_or_tri
                             }
                         if (not is_checked) and (not disabled):
                             browser.execute_script("arguments[0].click();", wrapper)
-                            time.sleep(1.0)
+                            await asyncio.sleep(1.0)
                     except Exception:
                         continue
                 break
 
-            time.sleep(1.5)
+            await asyncio.sleep(1.5) 
 
             spec_blocks = browser.find_elements(By.CSS_SELECTOR, "div.sell-o-addon[id^='p-']")
             logger.info(f"[规格抓取] 类目 {group_name} 识别到规格块数量={len(spec_blocks)}")
