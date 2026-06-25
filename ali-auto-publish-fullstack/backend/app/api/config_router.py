@@ -1495,6 +1495,125 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
             conn.commit()
             conn.close()
 
+        # ---------------- 自动采集分组和发品链接逻辑 ----------------
+        try:
+            import time as _t
+            # 1. 采集分组接口
+            group_url = "https://hz-productposting.alibaba.com/product/group_query_ajax.do?event=listGroupCombine"
+            group_js = f"""
+                const done = arguments[0];
+                fetch('{group_url}', {{
+                  method: 'GET',
+                  credentials: 'include',
+                  headers: {{ 'Accept': 'application/json,text/plain,*/*' }}
+                }} )
+                .then(async (r) => {{
+                  const t = await r.text();
+                  let j = null;
+                  try {{ j = t ? JSON.parse(t) : null; }} catch (_) {{}}
+                  done({{ ok: r.ok, json: j }});
+                }})
+                .catch((e) => done({{ ok: false, error: String(e) }}));
+            """
+            group_res = driver.execute_async_script(group_js)
+            
+            # 2. 采集产品列表接口 (获取所有商品，这里为了避免超时，假设最多取前5页)
+            all_products = []
+            for page in range(1, 6):
+                product_url = f"https://hz-productposting.alibaba.com/product/managementproducts/asyQueryProductsList.do?statisticsType=month&repositoryType=all&imageType=all&showPowerScore=&status=approved&showType=onlyMarket&page={page}&size=50&displayStatus=online"
+                prod_js = f"""
+                    const done = arguments[0];
+                    fetch('{product_url}', {{
+                      method: 'GET',
+                      credentials: 'include',
+                      headers: {{ 'Accept': 'application/json,text/plain,*/*' }}
+                    }} )
+                    .then(async (r) => {{
+                      const t = await r.text();
+                      let j = null;
+                      try {{ j = t ? JSON.parse(t) : null; }} catch (_) {{}}
+                      done({{ ok: r.ok, json: j }});
+                    }})
+                    .catch((e) => done({{ ok: false, error: String(e) }}));
+                """
+                prod_res = driver.execute_async_script(prod_js)
+                if isinstance(prod_res, dict) and prod_res.get("ok") and isinstance(prod_res.get("json"), list):
+                    items = prod_res["json"]
+                    if not items:
+                        break
+                    all_products.extend(items)
+                    _t.sleep(0.5)
+                else:
+                    break
+
+            # 3. 解析分组树，提取所有叶子分组 (一、二、三级)
+            groups_map = {{}}  # groupId -> groupName
+            def extract_groups(nodes, prefix=""):
+                for node in nodes:
+                    name = node.get("name", "").strip()
+                    gid = node.get("id")
+                    if not name or not gid:
+                        continue
+                    # 也可以拼层级名，这里按需求只用当前节点名
+                    groups_map[str(gid)] = name
+                    if node.get("children"):
+                        extract_groups(node["children"], name)
+
+            if isinstance(group_res, dict) and group_res.get("ok") and isinstance(group_res.get("json"), list):
+                extract_groups(group_res["json"])
+
+            # 4. 按分组统计产品月曝光量 (showNum)
+            group_top_products = {{}}  # groupId -> {"id": prod_id, "showNum": num}
+            for prod in all_products:
+                pid = str(prod.get("id", ""))
+                if not pid:
+                    continue
+                # 月曝光量
+                show_num = int(prod.get("showNum", 0))
+                
+                # 确定产品所属的最深分组
+                gid = ""
+                if prod.get("groupId3"):
+                    gid = str(prod.get("groupId3"))
+                elif prod.get("groupId2"):
+                    gid = str(prod.get("groupId2"))
+                elif prod.get("groupId"):
+                    gid = str(prod.get("groupId"))
+                
+                if gid and gid in groups_map:
+                    current_top = group_top_products.get(gid)
+                    if not current_top or show_num > current_top["showNum"]:
+                        group_top_products[gid] = {{"id": pid, "showNum": show_num}}
+
+            # 5. 更新配置管理的平台URL配置
+            if groups_map and group_top_products:
+                cfg = get_config()
+                if not hasattr(cfg, "group_urls"):
+                    from app.core.config_manager import GroupUrlsConfig
+                    cfg.group_urls = GroupUrlsConfig()
+                if not cfg.group_urls.group_url_map:
+                    cfg.group_urls.group_url_map = {{}}
+                
+                base_pub_url = "https://post.alibaba.com/product/publish.htm?spm=a2700.micro_product_manager.0.0.5d083e5f7ZITpt&pubType=similarPost&behavior=copyNew&itemId="
+                
+                for gid, top_prod in group_top_products.items( ):
+                    gname = groups_map[gid]
+                    pid = top_prod["id"]
+                    # 组装发品链接
+                    pub_url = f"{{base_pub_url}}{{pid}}"
+                    # 自动填充到配置
+                    cfg.group_urls.group_url_map[gname] = pub_url
+                
+                # 保存配置
+                from app.core.config_manager import config_manager
+                config_manager.save()
+        except Exception as e:
+            # 采集失败不阻断主流程
+            import logging
+            logging.warning(f"自动采集分组发品链接失败: {{e}}")
+        # ---------------- 自动采集分组和发品链接逻辑结束 ----------------
+
+
         # 绑定成功后：同步店铺资料到云端会员库，避免云端 me 无 company_name
         cloud_sync = {"ok": False, "detail": "", "status": 0}
         try:

@@ -779,6 +779,9 @@ export default function MembershipCenter() {
       }
 
       void loadMe();
+      // 清除本地配置缓存，确保配置管理页面重新加载最新分组链接
+      await configApi.reset();
+      
       if (showAdminTabs) {
         void loadAdminData();
       }
