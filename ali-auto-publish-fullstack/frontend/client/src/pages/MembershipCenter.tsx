@@ -334,11 +334,9 @@ export default function MembershipCenter() {
 
   useEffect(() => {
     if (token) {
-      const t = window.setTimeout(() => {
-        loadLedger();
-        loadOrders();
-      }, 400);
-      return () => window.clearTimeout(t);
+      // 取消 400ms 延迟，直接与 loadMe 并行发起请求
+      loadLedger();
+      loadOrders();
     }
   }, [token]);
 

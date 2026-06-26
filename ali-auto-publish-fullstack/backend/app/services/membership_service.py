@@ -42,7 +42,7 @@ _CLOUD_ME_TTL_SECONDS = int(os.getenv("CLOUD_ME_CACHE_SEC", "60"))
 # 修改后
 _CLOUD_ME_HTTP_TIMEOUT = (
     float(os.getenv("CLOUD_ME_CONNECT_TIMEOUT_SEC", "1.5")),  # 连接超时：3 → 1.5
-    float(os.getenv("CLOUD_ME_READ_TIMEOUT_SEC", "5"))        # 读取超时：不变
+    float(os.getenv("CLOUD_ME_READ_TIMEOUT_SEC", "3"))        # 读取超时：不变
 )
 _CLOUD_LOGIN_HTTP_TIMEOUT = (
     float(os.getenv("CLOUD_LOGIN_CONNECT_TIMEOUT_SEC", "1.5")),  # 连接超时：3 → 1.5
