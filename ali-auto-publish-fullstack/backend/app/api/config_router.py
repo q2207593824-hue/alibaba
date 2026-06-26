@@ -1498,6 +1498,24 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
         # ---------------- 自动采集分组和发品链接逻辑 ----------------
         try:
             import time as _t
+            from app.core.settings import config_manager as _cfg_mgr, GroupUrlConfig as _GroupUrlConfig
+
+            # 修复1: 先导航到 hz-productposting.alibaba.com 域，避免 CORS 跨域阻断 fetch
+            _group_base = "https://hz-productposting.alibaba.com"
+            _cur_url = str(driver.current_url or "")
+            if _group_base not in _cur_url:
+                try:
+                    driver.get(_group_base + "/product/managementproducts/publishedProduct.htm")
+                    _t.sleep(1.5)
+                except Exception:
+                    pass
+
+            # 修复2: 设置 async script 超时，避免 execute_async_script 立即超时
+            try:
+                driver.set_script_timeout(30)
+            except Exception:
+                pass
+
             # 1. 采集分组接口
             group_url = "https://hz-productposting.alibaba.com/product/group_query_ajax.do?event=listGroupCombine"
             group_js = f"""
@@ -1511,13 +1529,25 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
                   const t = await r.text();
                   let j = null;
                   try {{ j = t ? JSON.parse(t) : null; }} catch (_) {{}}
-                  done({{ ok: r.ok, json: j }});
+                  done({{ ok: r.ok, status: r.status, json: j }});
                 }})
                 .catch((e) => done({{ ok: false, error: String(e) }}));
             """
             group_res = driver.execute_async_script(group_js)
-            
-            # 2. 采集产品列表接口 (获取所有商品，这里为了避免超时，假设最多取前5页)
+
+            # 修复3: 兼容阿里接口多种返回结构
+            # 接口可能返回: list / {data: list} / {result: list} / {groups: list}
+            def _extract_list(res_json):
+                if isinstance(res_json, list):
+                    return res_json
+                if isinstance(res_json, dict):
+                    for key in ("data", "result", "groups", "list", "content"):
+                        val = res_json.get(key)
+                        if isinstance(val, list):
+                            return val
+                return []
+
+            # 2. 采集产品列表接口 (获取所有商品，最多取前5页)
             all_products = []
             for page in range(1, 6):
                 product_url = f"https://hz-productposting.alibaba.com/product/managementproducts/asyQueryProductsList.do?statisticsType=month&repositoryType=all&imageType=all&showPowerScore=&status=approved&showType=onlyMarket&page={page}&size=50&displayStatus=online"
@@ -1532,13 +1562,13 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
                       const t = await r.text();
                       let j = null;
                       try {{ j = t ? JSON.parse(t) : null; }} catch (_) {{}}
-                      done({{ ok: r.ok, json: j }});
+                      done({{ ok: r.ok, status: r.status, json: j }});
                     }})
                     .catch((e) => done({{ ok: false, error: String(e) }}));
                 """
                 prod_res = driver.execute_async_script(prod_js)
-                if isinstance(prod_res, dict) and prod_res.get("ok") and isinstance(prod_res.get("json"), list):
-                    items = prod_res["json"]
+                if isinstance(prod_res, dict) and prod_res.get("ok"):
+                    items = _extract_list(prod_res.get("json"))
                     if not items:
                         break
                     all_products.extend(items)
@@ -1547,31 +1577,29 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
                     break
 
             # 3. 解析分组树，提取所有叶子分组 (一、二、三级)
-            groups_map = {{}}  # groupId -> groupName
+            groups_map = {}  # groupId -> groupName
             def extract_groups(nodes, prefix=""):
                 for node in nodes:
                     name = node.get("name", "").strip()
                     gid = node.get("id")
                     if not name or not gid:
                         continue
-                    # 也可以拼层级名，这里按需求只用当前节点名
                     groups_map[str(gid)] = name
                     if node.get("children"):
                         extract_groups(node["children"], name)
 
-            if isinstance(group_res, dict) and group_res.get("ok") and isinstance(group_res.get("json"), list):
-                extract_groups(group_res["json"])
+            if isinstance(group_res, dict) and group_res.get("ok"):
+                group_list = _extract_list(group_res.get("json"))
+                if group_list:
+                    extract_groups(group_list)
 
             # 4. 按分组统计产品月曝光量 (showNum)
-            group_top_products = {{}}  # groupId -> {"id": prod_id, "showNum": num}
+            group_top_products = {}  # groupId -> {"id": prod_id, "showNum": num}
             for prod in all_products:
                 pid = str(prod.get("id", ""))
                 if not pid:
                     continue
-                # 月曝光量
-                show_num = int(prod.get("showNum", 0))
-                
-                # 确定产品所属的最深分组
+                show_num = int(prod.get("showNum", 0) or 0)
                 gid = ""
                 if prod.get("groupId3"):
                     gid = str(prod.get("groupId3"))
@@ -1579,38 +1607,31 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
                     gid = str(prod.get("groupId2"))
                 elif prod.get("groupId"):
                     gid = str(prod.get("groupId"))
-                
                 if gid and gid in groups_map:
                     current_top = group_top_products.get(gid)
                     if not current_top or show_num > current_top["showNum"]:
-                        group_top_products[gid] = {{"id": pid, "showNum": show_num}}
+                        group_top_products[gid] = {"id": pid, "showNum": show_num}
 
             # 5. 更新配置管理的平台URL配置
             if groups_map and group_top_products:
                 cfg = get_config()
-                if not hasattr(cfg, "group_urls"):
-                    from app.core.config_manager import GroupUrlsConfig
-                    cfg.group_urls = GroupUrlsConfig()
+                # 修复4: 使用正确的模块路径和类名 (GroupUrlConfig，非 GroupUrlsConfig)
+                if not hasattr(cfg, "group_urls") or cfg.group_urls is None:
+                    cfg.group_urls = _GroupUrlConfig()
                 if not cfg.group_urls.group_url_map:
-                    cfg.group_urls.group_url_map = {{}}
-                
+                    cfg.group_urls.group_url_map = {}
                 base_pub_url = "https://post.alibaba.com/product/publish.htm?spm=a2700.micro_product_manager.0.0.5d083e5f7ZITpt&pubType=similarPost&behavior=copyNew&itemId="
-                
-                for gid, top_prod in group_top_products.items( ):
+                for gid, top_prod in group_top_products.items():
                     gname = groups_map[gid]
                     pid = top_prod["id"]
-                    # 组装发品链接
-                    pub_url = f"{{base_pub_url}}{{pid}}"
-                    # 自动填充到配置
+                    pub_url = f"{base_pub_url}{pid}"
                     cfg.group_urls.group_url_map[gname] = pub_url
-                
-                # 保存配置
-                from app.core.config_manager import config_manager
-                config_manager.save()
+                # 修复4: 使用正确的 import 路径保存配置
+                _cfg_mgr.save()
+                logger.info(f"自动采集分组完成，共写入 {len(group_top_products)} 个分组发品链接")
         except Exception as e:
-            # 采集失败不阻断主流程
-            import logging
-            logging.warning(f"自动采集分组发品链接失败: {{e}}")
+            # 修复5: 修正日志格式化 bug（{{e}} -> {e}）
+            logger.warning(f"自动采集分组发品链接失败: {e}")
         # ---------------- 自动采集分组和发品链接逻辑结束 ----------------
 
 
