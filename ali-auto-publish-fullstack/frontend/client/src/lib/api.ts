@@ -773,6 +773,32 @@ export const configApi = {
     configCache = null;
   },
 
+  /**
+   * 直接将分组发品链接写入前端缓存并触发页面重渲染
+   * 用于登录成功后直接更新分组数据，不依赖 GET /api/config/（该接口可能被会员限制）
+   */
+  patchGroupUrlMap: (groupUrlMap: Record<string, string>) => {
+    try {
+      if (!groupUrlMap || typeof groupUrlMap !== "object") return;
+      const keys = Object.keys(groupUrlMap);
+      if (keys.length === 0) return;
+      // 更新内存缓存
+      if (configCache) {
+        const root = (configCache as any)?.data ?? configCache;
+        if (root && typeof root === "object") {
+          if (!root.group_urls || typeof root.group_urls !== "object") root.group_urls = {};
+          root.group_urls.group_url_map = { ...groupUrlMap };
+        }
+      }
+      // 同步写入 localStorage
+      writeConfigCacheToStorage(configCache);
+      // 触发所有订阅者重新读取缓存（如 ProductConfig.tsx 中的 loadConfig）
+      notifyConfigUpdates();
+    } catch {
+      // ignore
+    }
+  },
+
   /** 云端拉取后刷新内存/本地配置缓存 */
   refreshFromServer: async () => {
     try {

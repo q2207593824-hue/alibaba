@@ -779,10 +779,16 @@ export default function MembershipCenter() {
       }
 
       void loadMe();
-      // 清除本地配置缓存，强制重新从后端加载最新配置（含刚写入的分组发品链接）
-      // 注意：不能用 configApi.reset()，那会把整个配置重置为默认值，导致刚写入的分组数据丢失
-      configApi.invalidateCache();
-      await configApi.get(true);
+      // 直接从登录接口返回值中读取 group_url_map，写入前端配置缓存并触发页面重渲染
+      // 不依赖 GET /api/config/（该接口可能被会员限制）
+      try {
+        const groupUrlMap = payload?.data?.group_url_map || payload?.group_url_map;
+        if (groupUrlMap && typeof groupUrlMap === "object" && Object.keys(groupUrlMap).length > 0) {
+          configApi.patchGroupUrlMap(groupUrlMap as Record<string, string>);
+        }
+      } catch {
+        // ignore cache update error
+      }
       
       if (showAdminTabs) {
         void loadAdminData();

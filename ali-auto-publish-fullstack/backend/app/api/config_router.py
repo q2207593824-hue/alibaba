@@ -1667,6 +1667,12 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
         except Exception as e:
             cloud_sync["detail"] = str(e)
 
+        # 将采集到的分组发品链接包含在返回值中，让前端直接更新缓存，不依赖 GET /api/config/
+        _group_url_map = {}
+        try:
+            _group_url_map = dict(get_config().group_urls.group_url_map or {})
+        except Exception:
+            pass
         return {
             "success": True,
             "data": {
@@ -1677,6 +1683,7 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
                 "backend_url": backend_url,
                 "supplier_identity_url": supplier_url,
                 "cloud_sync": cloud_sync,
+                "group_url_map": _group_url_map,
             },
             "message": "登录成功，Cookie 已保存",
         }
