@@ -39,11 +39,14 @@ _CLOUD_ME_CACHE: Dict[str, Dict[str, Any]] = {}
 _CLOUD_ME_LOCK = threading.Lock()
 _CLOUD_ME_TTL_SECONDS = int(os.getenv("CLOUD_ME_CACHE_SEC", "60"))
 # /me：积分预检等场景；略高于旧 (1,2)s，减轻偶发误判「云端不可用」
-_CLOUD_ME_HTTP_TIMEOUT = (float(os.getenv("CLOUD_ME_CONNECT_TIMEOUT_SEC", "3")), float(os.getenv("CLOUD_ME_READ_TIMEOUT_SEC", "5")))
-# /auth/login：缩短超时以加快降级，避免云端不可达时阻塞用户登录
+# 修改后
+_CLOUD_ME_HTTP_TIMEOUT = (
+    float(os.getenv("CLOUD_ME_CONNECT_TIMEOUT_SEC", "1.5")),  # 连接超时：3 → 1.5
+    float(os.getenv("CLOUD_ME_READ_TIMEOUT_SEC", "5"))        # 读取超时：不变
+)
 _CLOUD_LOGIN_HTTP_TIMEOUT = (
-    float(os.getenv("CLOUD_LOGIN_CONNECT_TIMEOUT_SEC", "3")),
-    float(os.getenv("CLOUD_LOGIN_READ_TIMEOUT_SEC", "8")),
+    float(os.getenv("CLOUD_LOGIN_CONNECT_TIMEOUT_SEC", "1.5")),  # 连接超时：3 → 1.5
+    float(os.getenv("CLOUD_LOGIN_READ_TIMEOUT_SEC", "8")),        # 读取超时：不变
 )
 
 _CLOUD_MEMBERSHIP_IP_FALLBACK = os.getenv("CLOUD_MEMBERSHIP_API_IP", "43.164.196.172").strip()

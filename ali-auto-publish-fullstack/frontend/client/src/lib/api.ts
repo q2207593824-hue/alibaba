@@ -116,7 +116,7 @@ const api = axios.create({
 /** 会员/积分 API（桌面端默认直连云端；非登录接口网络失败时可回退本机代理） */
 const cloudMembershipApi = axios.create({
   baseURL: DEFAULT_CLOUD_MEMBERSHIP_BASE,
-  timeout: isElectron || isFileProtocol || isElectronUA ? 90000 : 60000,
+  timeout: isDesktopClient() ? 15000 : 15000,
   headers: {
     "Content-Type": "application/json",
   },
