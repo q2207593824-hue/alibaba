@@ -779,8 +779,10 @@ export default function MembershipCenter() {
       }
 
       void loadMe();
-      // 清除本地配置缓存，确保配置管理页面重新加载最新分组链接
-      await configApi.reset();
+      // 清除本地配置缓存，强制重新从后端加载最新配置（含刚写入的分组发品链接）
+      // 注意：不能用 configApi.reset()，那会把整个配置重置为默认值，导致刚写入的分组数据丢失
+      configApi.invalidateCache();
+      await configApi.get(true);
       
       if (showAdminTabs) {
         void loadAdminData();
