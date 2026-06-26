@@ -24,6 +24,9 @@ _CLOUD_GUARD_SYNC_LAST: Dict[str, float] = {}
 _CLOUD_OVERRIDE_LAST: Dict[str, float] = {}
 _GUARD_SYNC_MIN_INTERVAL_SEC = 120.0
 _CLOUD_OVERRIDE_MIN_INTERVAL_SEC = 60.0
+_EVAL_RESULT_CACHE: Dict[str, Dict] = {}   # token → {"ts": float, "state": dict}
+_EVAL_RESULT_TTL = 5.0                      # 同一token 5秒内复用权限结果
+
 
 
 def _dbg(msg: str) -> None:
@@ -266,8 +269,16 @@ async def require_membership_or_trial(
     state: Optional[Dict[str, Any]] = None
     local_eval_error = ""
     try:
-        state = await asyncio.to_thread(evaluate_access_by_token, token)
-        _dbg(f"local_eval ok allowed={bool((state or {}).get('allowed'))} reason={str((state or {}).get('reason') or '')}")
+        # 5秒内同一token直接复用上次权限结果，跳过SQLite+线程池
+        _now_ts = time.time()
+        _cached = _EVAL_RESULT_CACHE.get(token)
+        if _cached and (_now_ts - float(_cached.get("ts") or 0)) < _EVAL_RESULT_TTL:
+            state = _cached["state"]
+            _dbg(f"local_eval cache_hit allowed={bool((state or {}).get('allowed'))}")
+        else:
+            state = await asyncio.to_thread(evaluate_access_by_token, token)
+            _EVAL_RESULT_CACHE[token] = {"ts": _now_ts, "state": state}
+            _dbg(f"local_eval ok allowed={bool((state or {}).get('allowed'))} reason={str((state or {}).get('reason') or '')}")
     except Exception as e:
         local_eval_error = str(e)
         _dbg(f"local_eval failed err={local_eval_error}")
@@ -312,7 +323,7 @@ async def require_membership_or_trial(
 
     if bool((state or {}).get("allowed")):
         _dbg(f"final allow path={request.url.path} reason={(state or {}).get('reason')}")
-        logger.info(f"membership_guard: access granted. path={request.url.path}, reason={(state or {}).get('reason')}")
+        logger.debug(f"membership_guard: access granted. path={request.url.path}, reason={(state or {}).get('reason')}")
         return
 
     _dbg(f"final deny path={request.url.path} reason={reason} local_err={local_eval_error}")

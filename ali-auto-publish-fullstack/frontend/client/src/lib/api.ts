@@ -581,7 +581,11 @@ async function fetchConfigSection(section: string, forceRefresh: boolean = false
   return promise;
 }
 
+let _lastRevalidateAt = 0;
 function revalidateConfigInBackground(): Promise<any> | null {
+  const _now = Date.now();
+  if (_now - _lastRevalidateAt < 30000) return null;   // 30秒冷却
+  _lastRevalidateAt = _now;
   if (configRevalidatePromise) return configRevalidatePromise;
   configRevalidatePromise = api
     .get("/config/", { timeout: isDesktopClient() ? 15000 : 30000 })
