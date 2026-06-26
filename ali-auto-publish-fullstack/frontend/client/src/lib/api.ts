@@ -584,9 +584,10 @@ async function fetchConfigSection(section: string, forceRefresh: boolean = false
 let _lastRevalidateAt = 0;
 function revalidateConfigInBackground(): Promise<any> | null {
   const _now = Date.now();
-  if (_now - _lastRevalidateAt < 30000) return null;   // 30秒冷却
-  _lastRevalidateAt = _now;
+  if (_now - _lastRevalidateAt < 30000) return null;
+  
   if (configRevalidatePromise) return configRevalidatePromise;
+  _lastRevalidateAt = _now;
   configRevalidatePromise = api
     .get("/config/", { timeout: isDesktopClient() ? 15000 : 30000 })
     .then((latest) => {
@@ -1584,7 +1585,7 @@ export async function prepareAppSessionAfterLogin(opts?: {
     if (background && isAdmin) {
       void pullPromise;
     } else {
-      await Promise.race([pullPromise, sleep(background ? 5000 : 45000)]);
+      await Promise.race([pullPromise, sleep(background ? 5000 : 15000)]);
       if (!isAdmin) {
         try {
           await configApi.ensureRuntimeSecrets();
