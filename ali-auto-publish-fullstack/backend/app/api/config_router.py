@@ -448,156 +448,238 @@ async def delete_attribute(attr_name: str, _=Depends(require_membership_or_trial
 
 @router.post("/attributes/fetch-from-platform")
 async def fetch_attributes_from_platform(_=Depends(require_membership_or_trial)):
-    """从平台URL配置抓取属性并合并到属性配置"""
+    """
+    从平台发品URL调用 asyRender.json 接口抓取属性配置。
+    逻辑：
+    1. 对每个分组发品URL，调用 asyRender.json 接口获取 icbuCatProp.props.dataSource
+    2. uiType 映射规则: combobox/input→input, sequentialCombobox→tag, checkbox/select→single_search
+    3. 属性的 dataSource[].text 作为可选值（values）
+    4. 第一次执行时清空原有属性，确保配置的是该店铺的属性
+    5. 不同分组的属性进行合并（同名属性取各分组值的并集）
+    """
+    import requests as _requests
     from app.core.settings import AttributeItemConfig
 
     cfg = get_config()
-    target_urls = [str(cfg.group_urls.default_posting_url or "").strip()]
-    target_urls += [str(v or "").strip() for v in (cfg.group_urls.group_url_map or {}).values()]
-    target_urls = [u for u in target_urls if u]
+
+    # 收集所有发品URL：默认发品URL + 所有分组发品URL
+    target_urls: List[str] = []
+    default_url = str(cfg.group_urls.default_posting_url or "").strip()
+    if default_url:
+        target_urls.append(default_url)
+    for v in (cfg.group_urls.group_url_map or {}).values():
+        u = str(v or "").strip()
+        if u and u not in target_urls:
+            target_urls.append(u)
 
     logger.info(f"[属性抓取] 开始执行，URL数量={len(target_urls)}")
     for i, u in enumerate(target_urls, start=1):
         logger.info(f"[属性抓取] URL{i}: {u}")
 
     if not target_urls:
-        raise HTTPException(status_code=400, detail="未配置可用的平台URL")
+        raise HTTPException(status_code=400, detail="未配置可用的平台URL，请先在URL配置中配置分组发品链接")
 
     cookie_file = str(cfg.paths.cookie_file or "").strip()
     logger.info(f"[属性抓取] Cookie文件: {cookie_file}")
     if not cookie_file or not os.path.exists(cookie_file):
         raise HTTPException(status_code=400, detail="Cookie文件不存在，请先在Cookie管理中配置并登录")
 
-    try:
-        from selenium import webdriver
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.chrome.options import Options
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Selenium环境不可用: {e}")
+    # 加载 Cookie
+    with open(cookie_file, "rb") as f:
+        raw_cookies = pickle.load(f)
+    logger.info(f"[属性抓取] 读取Cookie数量={len(raw_cookies or [])}")
 
-    browser = None
-    grabbed: Dict[str, Dict[str, Any]] = {}
+    session = _requests.Session()
+    for c in (raw_cookies or []):
+        try:
+            name = c.get("name", "")
+            value = c.get("value", "")
+            domain = c.get("domain", "").lstrip(".")
+            if name and value:
+                session.cookies.set(name, value, domain=domain)
+        except Exception:
+            pass
 
-    try:
-        options = Options()
-        options.add_argument("--start-maximized")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        browser = webdriver.Chrome(service=BrowserManager._build_chrome_service(), options=options)
-        logger.info("[属性抓取] 浏览器启动成功")
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://post.alibaba.com/",
+        "Accept": "application/json, text/plain, */*",
+    })
 
-        # cookie登录
-        browser.get("https://www.alibaba.com/")
-        with open(cookie_file, "rb") as f:
-            cookies = pickle.load(f)
-        logger.info(f"[属性抓取] 读取Cookie数量={len(cookies or [])}")
-        for c in (cookies or []):
-            try:
-                browser.add_cookie(c)
-            except Exception:
-                pass
-        browser.refresh()
-        await asyncio.sleep(1.2)
-        logger.info("[属性抓取] Cookie注入完成")
+    def _map_ui_type(ui_type: str) -> str:
+        """uiType 映射到 select_type"""
+        if ui_type in ("combobox", "input"):
+            return "input"
+        elif ui_type == "sequentialCombobox":
+            return "tag"
+        elif ui_type in ("checkbox", "select"):
+            return "single_search"
+        else:
+            return "input"  # 默认当 input 处理
 
-        for idx, url in enumerate(target_urls, start=1):
-            logger.info(f"[属性抓取] 正在访问({idx}/{len(target_urls)}): {url}")
-            browser.get(url)
-            cur = str(browser.current_url or "")
-            logger.info(f"[属性抓取] 当前页面: {cur}")
-            if "login.alibaba.com" in cur:
-                logger.error("[属性抓取] 检测到登录页，Cookie失效")
-                raise HTTPException(status_code=400, detail="Cookie已失效，请先在Cookie管理重新登录")
+    def _pub_url_to_render_url(pub_url: str) -> str:
+        """\u5c06发品URL转换为 asyRender.json 接口URL"""
+        import re
+        # 支持多种发品URL格式
+        render = re.sub(r"/product/publish\.htm", "/product/asyRender.json", pub_url)
+        render = re.sub(r"/product/publishNew\.htm", "/product/asyRender.json", render)
+        # 确保包含 behavior=copyNew
+        if "behavior=" not in render:
+            sep = "&" if "?" in render else "?"
+            render += f"{sep}behavior=copyNew"
+        return render
 
-            main_container = WebDriverWait(browser, 20).until(
-                EC.presence_of_element_located((By.ID, "struct-icbuCatProp"))
+    # 每个URL的属性数据： {label: {container_id, select_type, values: set()}}
+    # 使用 dict 保持插入顺序，同名属性的值取并集
+    merged_attrs: Dict[str, Dict[str, Any]] = {}
+
+    for idx, pub_url in enumerate(target_urls, start=1):
+        render_url = _pub_url_to_render_url(pub_url)
+        logger.info(f"[属性抓取] ({idx}/{len(target_urls)}) 调用接口: {render_url}")
+        try:
+            resp = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda u=render_url: session.get(u, timeout=30)
             )
-            items = main_container.find_elements(By.CSS_SELECTOR, "div[id^='struct-p-']")
-            logger.info(f"[属性抓取] URL#{idx} 识别到属性容器数量={len(items)}")
+            if resp.status_code == 302 or "login.alibaba.com" in resp.url:
+                raise HTTPException(status_code=400, detail="Cookie已失效，请先在Cookie管理重新登录")
+            resp.raise_for_status()
+            data = resp.json()
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"[属性抓取] URL#{idx} 请求失败: {e}")
+            continue
 
-            got_this_url = 0
-            for i, container in enumerate(items):
-                try:
-                    container_id = str(container.get_attribute("id") or "").strip()
-                    if not container_id:
-                        continue
+        if not data.get("success"):
+            logger.warning(f"[属性抓取] URL#{idx} 接口返回 success=false")
+            continue
 
-                    attr_name = f"属性_{i+1}"
-                    try:
-                        label_el = container.find_element(By.CLASS_NAME, "label")
-                        label_text = str(label_el.text or "").strip()
-                        if label_text:
-                            attr_name = label_text
-                    except Exception:
-                        pass
+        # 提取 icbuCatProp.props.dataSource
+        try:
+            icbu_props = (
+                data.get("data", {})
+                .get("noIcmpResult", {})
+                .get("components", {})
+                .get("icbuCatProp", {})
+                .get("props", {})
+            )
+            prop_list = icbu_props.get("dataSource", [])
+        except Exception as e:
+            logger.warning(f"[属性抓取] URL#{idx} 提取icbuCatProp失败: {e}")
+            continue
 
-                    is_required = ("required" in str(container.get_attribute("class") or "")) or (len(container.find_elements(By.CLASS_NAME, "required")) > 0)
+        if not prop_list:
+            logger.warning(f"[属性抓取] URL#{idx} icbuCatProp.dataSource为空")
+            continue
 
-                    grabbed[attr_name] = {
-                        "container_id": container_id,
-                        "input_id": "",
-                        "type": "required" if is_required else "optional",
-                        "select_type": "input",
-                    }
-                    got_this_url += 1
-                    logger.info(f"[属性抓取] + 属性: {attr_name} | {container_id} | {'required' if is_required else 'optional'}")
-                except Exception as e:
-                    logger.warning(f"[属性抓取] 跳过属性容器#{i+1}: {e}")
+        got_this_url = 0
+        for prop in prop_list:
+            try:
+                prop_name = str(prop.get("name", "")).strip()   # e.g. "p-100005852"
+                label = str(prop.get("label", "")).strip()       # e.g. "首饰主要材质"
+                ui_type = str(prop.get("uiType", "")).strip()   # e.g. "combobox"
+                ds = prop.get("dataSource") or []
+
+                if not prop_name:
                     continue
 
-            logger.info(f"[属性抓取] URL#{idx} 有效抓取属性数={got_this_url}")
+                # 属性名称优先用 label，如果没有 label 则用 prop_name
+                attr_key = label if label else prop_name
+                container_id = f"struct-{prop_name}"  # e.g. "struct-p-100005852"
+                select_type = _map_ui_type(ui_type)
 
-        all_attrs = dict(cfg.attributes.all_attributes or {})
-        before_total = len(all_attrs)
-        add_count = 0
-        skip_existing_count = 0
+                # 提取可选值（dataSource[].text）
+                values_set: List[str] = [str(item.get("text", "")).strip() for item in ds if item.get("text")]
 
-        for name, item in grabbed.items():
-            existing = all_attrs.get(name)
-            if existing is not None:
-                skip_existing_count += 1
-                logger.info(f"[属性抓取] 跳过已存在属性: {name}")
+                if attr_key not in merged_attrs:
+                    merged_attrs[attr_key] = {
+                        "container_id": container_id,
+                        "select_type": select_type,
+                        "values": list(dict.fromkeys(values_set)),  # 去重保持顺序
+                        "required": bool(prop.get("required", False)),
+                    }
+                else:
+                    # 同名属性：将新分组的值并入（去重）
+                    existing_vals = merged_attrs[attr_key]["values"]
+                    for v in values_set:
+                        if v and v not in existing_vals:
+                            existing_vals.append(v)
+
+                got_this_url += 1
+                logger.info(
+                    f"[属性抓取] URL#{idx} + {attr_key} | {container_id} | {select_type} | values数={len(values_set)}"
+                )
+            except Exception as e:
+                logger.warning(f"[属性抓取] URL#{idx} 处理属性失败: {e}")
                 continue
 
-            all_attrs[name] = AttributeItemConfig(
-                container_id=item.get("container_id", ""),
-                values=[],
-                input_id=item.get("input_id", ""),
-                type=item.get("type", "required"),
-                select_type=item.get("select_type", "input"),
+        logger.info(f"[属性抓取] URL#{idx} 有效抓取属性数={got_this_url}")
+
+    if not merged_attrs:
+        raise HTTPException(status_code=500, detail="未成功抓取到任何属性，请检查Cookie是否有效、发品URL是否正确")
+
+    # 第一次获取：清空原有属性，确保配置的是该店铺的属性
+    # 判断条件：如果现有属性中没有任何一个和抓取到的属性名称匹配，则认为是第一次获取
+    existing_attrs = dict(cfg.attributes.all_attributes or {})
+    fetched_keys = set(merged_attrs.keys())
+    existing_keys = set(existing_attrs.keys())
+    is_first_fetch = len(existing_keys & fetched_keys) == 0
+
+    if is_first_fetch:
+        logger.info(f"[属性抓取] 第一次获取，清空原有 {len(existing_attrs)} 个属性，重新写入")
+        new_attrs: Dict[str, AttributeItemConfig] = {}
+    else:
+        logger.info(f"[属性抓取] 增量模式，保留现有 {len(existing_attrs)} 个属性")
+        new_attrs = dict(existing_attrs)
+
+    add_count = 0
+    update_count = 0
+
+    for attr_key, item in merged_attrs.items():
+        values = item.get("values", [])
+        select_type = item.get("select_type", "input")
+        container_id = item.get("container_id", "")
+        is_required = item.get("required", False)
+
+        if attr_key in new_attrs and not is_first_fetch:
+            # 增量模式：已存在属性，更新 values_pool（不覆盖用户已配置的 values）
+            existing = new_attrs[attr_key]
+            # 只更新 select_type 和 container_id，保留用户配置的 values
+            existing.select_type = select_type
+            existing.container_id = container_id
+            update_count += 1
+        else:
+            # 新属性：直接写入，将接口返回的值写入 values
+            new_attrs[attr_key] = AttributeItemConfig(
+                container_id=container_id,
+                values=values,
+                input_id=None,
+                type="required" if is_required else "optional",
+                select_type=select_type,
             )
             add_count += 1
 
-        cfg.attributes.all_attributes = all_attrs
-        config_manager.save()
+    cfg.attributes.all_attributes = new_attrs
+    config_manager.save()
 
-        logger.info(
-            f"[属性抓取] 完成: 抓取={len(grabbed)} 新增={add_count} 跳过已存在={skip_existing_count} 总数(前->后)={before_total}->{len(all_attrs)}"
-        )
+    logger.info(
+        f"[属性抓取] 完成: 抓取={len(merged_attrs)} 新增={add_count} 更新={update_count} "
+        f"总数(前->后)={len(existing_attrs)}->{len(new_attrs)} 是否第一次={is_first_fetch}"
+    )
 
-        return {
-            "success": True,
-            "data": {
-                "target_url_count": len(target_urls),
-                "fetched_count": len(grabbed),
-                "added_count": add_count,
-                "skipped_existing_count": skip_existing_count,
-                "attribute_total": len(all_attrs),
-            },
-            "message": "属性抓取完成并已写入配置（增量）",
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"抓取属性失败: {e}")
-    finally:
-        try:
-            if browser:
-                browser.quit()
-        except Exception:
-            pass
+    return {
+        "success": True,
+        "data": {
+            "target_url_count": len(target_urls),
+            "fetched_count": len(merged_attrs),
+            "added_count": add_count,
+            "updated_count": update_count,
+            "attribute_total": len(new_attrs),
+            "is_first_fetch": is_first_fetch,
+        },
+        "message": f"属性抓取完成：共获取 {len(merged_attrs)} 个属性，新增 {add_count} 个{'(已清空旧属性)' if is_first_fetch else ''}",
+    }
 
 
 @router.post("/specifications/fetch-from-platform")
