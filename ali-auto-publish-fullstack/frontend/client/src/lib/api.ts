@@ -1287,7 +1287,7 @@ export const membershipApi = {
     };
 
     if (isDesktopClient()) {
-      const ready = await waitLocalBackendReady(20000);
+      const ready = await waitLocalBackendReady(15000);
       if (!ready) {
         throw new Error(
           "本地服务未启动完成，无法登录。请关闭软件后重新打开，等待约 30 秒再试；仍失败请联系技术支持并提供 runtime.log"
@@ -1296,7 +1296,7 @@ export const membershipApi = {
 
       let cloudAuthErr: unknown = null;
       try {
-        const data = await tryLocal({ skipWait: true, timeout: 30000 });
+        const data = await tryLocal({ skipWait: true, timeout: 15000 });
         if (data.role) return data;
         throw new Error("登录响应异常：未返回 role");
       } catch (localErr: unknown) {
@@ -1505,7 +1505,7 @@ export const membershipApi = {
   },
 };
 
-const LOCAL_SESSION_SYNC_TIMEOUT_MS = 8000;
+const LOCAL_SESSION_SYNC_TIMEOUT_MS = 5000;
 const SESSION_SYNCED_AT_KEY = "membership_session_synced_at";
 const SESSION_SYNC_TTL_MS = 5 * 60 * 1000;
 
@@ -1580,7 +1580,7 @@ export async function prepareAppSessionAfterLogin(opts?: {
     if (background && isAdmin) {
       void pullPromise;
     } else {
-      await Promise.race([pullPromise, sleep(background ? 15000 : 45000)]);
+      await Promise.race([pullPromise, sleep(background ? 5000 : 45000)]);
       if (!isAdmin) {
         try {
           await configApi.ensureRuntimeSecrets();

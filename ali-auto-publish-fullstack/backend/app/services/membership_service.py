@@ -37,9 +37,9 @@ CLOUD_MEMBERSHIP_ME_URL = f"{CLOUD_MEMBERSHIP_API_BASE}/me"
 
 _CLOUD_ME_CACHE: Dict[str, Dict[str, Any]] = {}
 _CLOUD_ME_LOCK = threading.Lock()
-_CLOUD_ME_TTL_SECONDS = 30
+_CLOUD_ME_TTL_SECONDS = int(os.getenv("CLOUD_ME_CACHE_SEC", "60"))
 # /me：积分预检等场景；略高于旧 (1,2)s，减轻偶发误判「云端不可用」
-_CLOUD_ME_HTTP_TIMEOUT = (float(os.getenv("CLOUD_ME_CONNECT_TIMEOUT_SEC", "3")), float(os.getenv("CLOUD_ME_READ_TIMEOUT_SEC", "8")))
+_CLOUD_ME_HTTP_TIMEOUT = (float(os.getenv("CLOUD_ME_CONNECT_TIMEOUT_SEC", "3")), float(os.getenv("CLOUD_ME_READ_TIMEOUT_SEC", "5")))
 # /auth/login：缩短超时以加快降级，避免云端不可达时阻塞用户登录
 _CLOUD_LOGIN_HTTP_TIMEOUT = (
     float(os.getenv("CLOUD_LOGIN_CONNECT_TIMEOUT_SEC", "3")),
@@ -49,7 +49,7 @@ _CLOUD_LOGIN_HTTP_TIMEOUT = (
 _CLOUD_MEMBERSHIP_IP_FALLBACK = os.getenv("CLOUD_MEMBERSHIP_API_IP", "43.164.196.172").strip()
 _CLOUD_PUBLIC_HOST = os.getenv("CLOUD_MEMBERSHIP_PUBLIC_HOST", "echo-yiwu.cloud").strip() or "echo-yiwu.cloud"
 _DOH_CACHE: Dict[str, Tuple[float, List[str]]] = {}
-_DOH_TTL_SECONDS = int(os.getenv("CLOUD_DOH_CACHE_SEC", "300"))
+_DOH_TTL_SECONDS = int(os.getenv("CLOUD_DOH_CACHE_SEC", "3600"))
 
 
 def apply_cloud_network_bypass() -> None:
