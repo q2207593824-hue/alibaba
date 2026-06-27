@@ -131,20 +131,21 @@ def ensure_desktop_admin_api_key() -> None:
             return
 
         if on_disk in _PLACEHOLDER_ADMIN_KEYS or not on_disk:
-            should_sync = True
-        elif desktop_mode:
+            # 磁盘上是占位符或空，无论如何都要写入 deploy_key
             should_sync = True
         else:
+            # 磁盘上已有非占位符 key（可能是云端同步的正确 key），不覆盖
+            # 这样可以避免旧 desktop.deploy.json 中的错误 key 覆盖云端同步的正确 key
             should_sync = False
+            logger.info(
+                "desktop bootstrap: keep existing payment.admin_api_key on disk (may be cloud-synced)"
+            )
 
         if not should_sync:
-            logger.info(
-                "desktop bootstrap: keep custom payment.admin_api_key on disk (dev, non-placeholder)"
-            )
             return
 
         config_manager.update("payment", {"admin_api_key": deploy_key})
-        reason = "placeholder" if on_disk in _PLACEHOLDER_ADMIN_KEYS or not on_disk else "desktop_deploy_mismatch"
-        logger.info("desktop bootstrap: synced payment.admin_api_key (%s)", reason)
+        logger.info("desktop bootstrap: synced payment.admin_api_key (placeholder replaced)")
+
     except Exception as e:
         logger.warning("desktop bootstrap admin_api_key sync failed: %s", e)
