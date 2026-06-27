@@ -1065,7 +1065,7 @@ export const imageApi = {
   /** AI 生图配置 */
   getAiGenConfig: () => api.get("/images/ai-gen/config"),
   updateAiGenConfig: (data: Record<string, any>) => api.put("/images/ai-gen/config", data),
-  getAiGenInputs: () => api.get("/images/ai-gen/inputs"),
+  getAiGenInputs: () => api.get("/images/ai-gen/inputs"),getAiGenInputScenes: () => api.get("/images/ai-gen/input-scenes"),
   getAiGenOutputs: (product?: string) => api.get("/images/ai-gen/outputs", { params: product ? { product } : {} }),
   getAiGenPrompts: (imagePath: string) => api.get("/images/ai-gen/prompts", { params: { image_path: imagePath } }),
   getAiGenPointsPricing: () => api.get("/images/ai-gen/points-pricing"),
