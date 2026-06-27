@@ -439,9 +439,60 @@ cloudMembershipApi.interceptors.response.use(
   async (error) => {
     const config = error?.config as any;
     const reqPath = String(config?.url || "");
+
+    // 第一优先级：渲染进程网络失败时，通过 IPC 让主进程用 Node.js 直连云端（绕过 Clash/代理）
+    const canUseIpcProxy =
+      isDesktopClient() &&
+      !config?.__ipcProxyFallback &&
+      isMembershipNetworkFailure(error) &&
+      typeof (window as any)?.desktopEnv?.cloudRequest === "function";
+
+    if (canUseIpcProxy) {
+      config.__ipcProxyFallback = true;
+      let ipcHandled = false;
+      try {
+        const baseURL = String(config.baseURL || DEFAULT_CLOUD_MEMBERSHIP_BASE).replace(/\/+$/, "");
+        const fullUrl = config.url?.startsWith("http" )
+          ? config.url
+          : `${baseURL}${config.url || ""}`;
+        const hdrCfg = attachMembershipRequestHeaders({ headers: { ...(config.headers || {}) } });
+        const ipcResult = await (window as any).desktopEnv.cloudRequest({
+          method: (config.method || "GET").toUpperCase(),
+          url: fullUrl,
+          headers: (hdrCfg as any).headers || {},
+          body: config.data ? (typeof config.data === "string" ? JSON.parse(config.data) : config.data) : undefined,
+          timeoutMs: Math.max(Number(config.timeout) || 15000, 15000),
+        });
+        if (ipcResult?.status) {
+          ipcHandled = true;
+          const fakeResponse = {
+            data: ipcResult.data,
+            status: ipcResult.status,
+            statusText: ipcResult.ok ? "OK" : "Error",
+            headers: ipcResult.headers || {},
+            config,
+            request: null,
+          } as any;
+          if (ipcResult.ok) {
+            return fakeResponse;
+          } else {
+            const ipcErr: any = new Error(
+              ipcResult.data?.detail || ipcResult.data?.message || `请求失败 (${ipcResult.status})`
+            );
+            ipcErr.response = fakeResponse;
+            ipcErr.config = config;
+            return Promise.reject(ipcErr);
+          }
+        }
+      } catch (_ipcErr) {
+        if (ipcHandled) return Promise.reject(_ipcErr);
+      }
+    }
+
     if (/\/auth\/login\b/i.test(reqPath)) {
       return Promise.reject(error);
     }
+
     if (!isDesktopClient() || config?.__localProxyFallback) {
       return Promise.reject(error);
     }
