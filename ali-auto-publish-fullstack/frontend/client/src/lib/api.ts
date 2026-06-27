@@ -1370,9 +1370,8 @@ export const membershipApi = {
     cloudMembershipApi.get("/recharge/list", { params: params || {} }),
 
   listRechargeOrdersPaged: (params?: { status?: string; page?: number; page_size?: number }) =>
-    useLocalMembershipProxy()
-      ? api.get("/membership/recharge/list-paged", { params: params || {}, timeout: 15000 })
-      : cloudMembershipApi.get("/recharge/list-paged", { params: params || {} }),
+    cloudMembershipApi.get("/recharge/list-paged", { params: params || {} }),
+
 
   redeemVip: (months: number = 1) => cloudMembershipApi.post("/vip/redeem", { months }),
 
