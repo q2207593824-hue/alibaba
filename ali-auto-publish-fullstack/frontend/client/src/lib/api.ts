@@ -1238,14 +1238,14 @@ export const membershipApi = {
     cloudMembershipApi.post("/agent/heartbeat", params, { headers: { "X-Admin-Key": adminKey } }),
   
 
-/** 关键词汇总回传：走云端入库，确保管理员在云端能查询到数据 */
-telemetryKeywords: (params: {
-  agent_id: string;
-  report_date: string;
-  batch_no: string;
-  source?: string;
-  items: Array<{ keyword: string; exposure?: number; click?: number; ctr?: number; keyword_index?: number; product_id?: string }>;
-}) => cloudMembershipApi.post("/telemetry/keywords", params),
+  /** 关键词汇总回传：走云端入库，确保管理员在云端能查询到数据 */
+  telemetryKeywords: (params: {
+    agent_id: string;
+    report_date: string;
+    batch_no: string;
+    source?: string;
+    items: Array<{ keyword: string; exposure?: number; click?: number; ctr?: number; keyword_index?: number; product_id?: string }>;
+  }) => cloudMembershipApi.post("/telemetry/keywords", params),
 
 
   login: (params: { username: string; password: string }) =>
