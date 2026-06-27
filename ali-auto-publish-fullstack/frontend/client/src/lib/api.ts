@@ -1397,9 +1397,10 @@ export const membershipApi = {
   /** 管理员向本机申请 Bearer token（与 X-Admin-Key 配合） */
   syncAdminSession: () =>
     api.post("/membership/auth/sync-admin-session", {}, { timeout: 8000 }),
-
-  /** 管理员 Bearer 会话：从本机 backend 刷新有效的 admin_key（避免 localStorage 缓存占位符） */
-  refreshAdminSessionKey: () => api.get("/membership/auth/admin-session-key", { timeout: 10000 }),
+  
+  // 在 Electron 桌面端，优先从云端获取 admin_key（本地 backend 可能没有配置）
+  refreshAdminSessionKey: () =>
+      cloudMembershipApi.get("/auth/admin-session-key", { timeout: 10000 }),
 
   me: () => cloudMembershipApi.get("/me", { timeout: 20000 }),
 
