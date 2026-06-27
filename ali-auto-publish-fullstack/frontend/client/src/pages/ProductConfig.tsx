@@ -1234,7 +1234,16 @@ export default function ProductConfig() {
                   </div>
                   {priceTiers.map((tier: any, i: number) => (
                     <div key={i} className="grid grid-cols-4 gap-4 items-center">
-                      <Input type="number" value={tier.minQty} className="text-sm" readOnly />
+                      <Input
+                        type="number"
+                        value={tier.minQty}
+                        className="text-sm"
+                        onChange={(e) => {
+                          const orders = [...(config?.price?.ladder_min_orders || [])];
+                          orders[i] = parseInt(e.target.value) || 0;
+                          updateConfig("price.ladder_min_orders", orders);
+                        }}
+                      />
                       <Input type="number" step="0.1" value={tier.factorLow} className="text-sm"
                         onChange={(e) => {
                           const ranges = [...(config?.price?.ladder_factor_ranges || [])];
