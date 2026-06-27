@@ -1232,19 +1232,21 @@ export const membershipApi = {
     api.post("/membership/auth/admin-login", params, { timeout: 8000 }),
 
   adminAgentRegister: (params: { agent_id: string; client_name?: string; machine_id?: string; app_version?: string; license_key?: string }, adminKey: string) =>
-    api.post("/membership/agent/register", params, { headers: { "X-Admin-Key": adminKey } }),
-
+    cloudMembershipApi.post("/agent/register", params, { headers: { "X-Admin-Key": adminKey } }),
+  
   adminAgentHeartbeat: (params: { agent_id: string; status?: string }, adminKey: string) =>
-    api.post("/membership/agent/heartbeat", params, { headers: { "X-Admin-Key": adminKey } }),
+    cloudMembershipApi.post("/agent/heartbeat", params, { headers: { "X-Admin-Key": adminKey } }),
+  
 
-  /** 关键词汇总回传：已登录会员或管理员均可；走本地 /api，由后端入库 */
-  telemetryKeywords: (params: {
-    agent_id: string;
-    report_date: string;
-    batch_no: string;
-    source?: string;
-    items: Array<{ keyword: string; exposure?: number; click?: number; ctr?: number; keyword_index?: number; product_id?: string }>;
-  }) => api.post("/membership/telemetry/keywords", params),
+/** 关键词汇总回传：走云端入库，确保管理员在云端能查询到数据 */
+telemetryKeywords: (params: {
+  agent_id: string;
+  report_date: string;
+  batch_no: string;
+  source?: string;
+  items: Array<{ keyword: string; exposure?: number; click?: number; ctr?: number; keyword_index?: number; product_id?: string }>;
+}) => cloudMembershipApi.post("/telemetry/keywords", params),
+
 
   login: (params: { username: string; password: string }) =>
     cloudMembershipApi.post("/auth/login", params),
@@ -1465,15 +1467,16 @@ export const membershipApi = {
       { headers: { "X-Admin-Key": params.adminKey } }
     ),
 
-  // 节点/关键词回传属于本地控制面数据，固定走本地 /api，避免云端路由差异导致 405
+  // 节点数据统一从云端读取
   adminAgents: (params: { limit?: number; adminKey: string }) =>
-    api.get("/membership/admin/agents", {
+    cloudMembershipApi.get("/admin/agents", {
       params: params?.limit ? { limit: params.limit } : {},
       headers: { "X-Admin-Key": params.adminKey },
     }),
 
+
   adminTelemetryKeywords: (params: { agent_id?: string; limit?: number; adminKey: string }) =>
-    api.get("/membership/admin/telemetry/keywords", {
+    cloudMembershipApi.get("/admin/telemetry/keywords", {
       params: {
         ...(params?.agent_id ? { agent_id: params.agent_id } : {}),
         ...(params?.limit ? { limit: params.limit } : {}),
@@ -1482,30 +1485,32 @@ export const membershipApi = {
     }),
 
   adminTelemetryKeywordDetail: (params: { report_id: number; limit?: number; adminKey: string }) =>
-    api.get(`/membership/admin/telemetry/keywords/${params.report_id}`, {
+    cloudMembershipApi.get(`/admin/telemetry/keywords/${params.report_id}`, {
       params: params?.limit ? { limit: params.limit } : {},
       headers: { "X-Admin-Key": params.adminKey },
-    }),
+      }),
+    
 
-  adminDeleteTelemetryKeywords: (params: { report_ids: number[]; adminKey: string }) =>
-    api.post(
-      "/membership/admin/telemetry/keywords/batch/delete",
-      { report_ids: params.report_ids || [] },
-      { headers: { "X-Admin-Key": params.adminKey } }
-    ),
+    adminDeleteTelemetryKeywords: (params: { report_ids: number[]; adminKey: string }) =>
+      cloudMembershipApi.post(
+        "/admin/telemetry/keywords/batch/delete",
+        { report_ids: params.report_ids || [] },
+        { headers: { "X-Admin-Key": params.adminKey } }
+      ),
 
-  adminSetAgentPolicy: (params: { agent_id: string; policy: Record<string, any>; adminKey: string }) =>
-    api.post(
-      "/membership/admin/agents/policy",
-      { agent_id: params.agent_id, policy: params.policy || {} },
-      { headers: { "X-Admin-Key": params.adminKey } }
-    ),
+    adminSetAgentPolicy: (params: { agent_id: string; policy: Record<string, any>; adminKey: string }) =>
+      cloudMembershipApi.post(
+        "/admin/agents/policy",
+        { agent_id: params.agent_id, policy: params.policy || {} },
+        { headers: { "X-Admin-Key": params.adminKey } }
+      ),
 
-  agentGetPolicy: (params: { agent_id: string; adminKey: string }) =>
-    api.get("/membership/agent/policy", { params: { agent_id: params.agent_id }, headers: { "X-Admin-Key": params.adminKey } }),
+    agentGetPolicy: (params: { agent_id: string; adminKey: string }) =>
+      cloudMembershipApi.get("/agent/policy", { params: { agent_id: params.agent_id }, headers: { "X-Admin-Key": params.adminKey } }),
+      
 
   resolveAgentPolicy: async (params: { agent_id: string; adminKey: string }) => {
-    const res = await api.get("/membership/agent/policy", { params: { agent_id: params.agent_id }, headers: { "X-Admin-Key": params.adminKey } });
+    const res = await cloudMembershipApi.get("/agent/policy", { params: { agent_id: params.agent_id }, headers: { "X-Admin-Key": params.adminKey } });
     return (res?.data || res)?.policy || {};
   },
 };

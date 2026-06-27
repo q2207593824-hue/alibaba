@@ -23,10 +23,10 @@ app.commandLine.appendSwitch('proxy-bypass-list', '<-loopback>;127.0.0.1;localho
 
 const CLOUD_PUBLIC_HOST = process.env.CLOUD_MEMBERSHIP_PUBLIC_HOST || 'echo-yiwu.cloud';
 const CLOUD_REAL_IP = process.env.CLOUD_MEMBERSHIP_API_IP || '43.164.196.172';
-// 强制把会员域名解析到真实 IP，绕过 Clash 假 DNS（198.18.x.x）
-if (CLOUD_PUBLIC_HOST && CLOUD_REAL_IP) {
-  app.commandLine.appendSwitch('host-resolver-rules', `MAP ${CLOUD_PUBLIC_HOST} ${CLOUD_REAL_IP}`);
-}
+// // 强制把会员域名解析到真实 IP，绕过 Clash 假 DNS（198.18.x.x）
+// if (CLOUD_PUBLIC_HOST && CLOUD_REAL_IP) {
+//   app.commandLine.appendSwitch('host-resolver-rules', `MAP ${CLOUD_PUBLIC_HOST} ${CLOUD_REAL_IP}`);
+// }
 
 const isDev = !!process.env.ELECTRON_DEV || !app.isPackaged;
 const isPortableRuntime = app.isPackaged && !!(process.env.PORTABLE_EXECUTABLE_DIR || process.env.PORTABLE_EXECUTABLE_FILE);
