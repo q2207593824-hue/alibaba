@@ -380,15 +380,17 @@ export default function MembershipCenter() {
       }
       const kind = await performMembershipLogin(username, password);
       if (kind === "admin") {
-        setMe(null);
-        setAdminConsoleLoggedIn(true);
-        setAdminConsoleUser(localStorage.getItem("admin_console_user") || username);
-        setAdminKey(localStorage.getItem(ADMIN_KEY_STORE) || "");
-        toast.success("已自动识别管理员账号并登录");
-        await loadAdminData();
-        navigateToHome(setLocation);
-        void prepareAppSessionAfterLogin({ background: true });
-        return;
+          setMe(null);
+          setAdminConsoleLoggedIn(true);
+          setAdminConsoleUser(localStorage.getItem("admin_console_user") || username);
+          const freshKey = localStorage.getItem(ADMIN_KEY_STORE) || "";
+          setAdminKey(freshKey);
+          toast.success("已自动识别管理员账号并登录");
+          // 直接用 freshKey 调用，不依赖异步更新的 state
+          await loadAdminData(freshKey);
+          navigateToHome(setLocation);
+          void prepareAppSessionAfterLogin({ background: true });
+          return;
       }
 
       setAdminConsoleLoggedIn(false);
