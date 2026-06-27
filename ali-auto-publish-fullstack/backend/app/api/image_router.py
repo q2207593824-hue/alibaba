@@ -246,6 +246,36 @@ async def list_ai_gen_inputs():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/ai-gen/input-scenes")
+async def get_ai_gen_input_scenes():
+    """从原图目录的图片文件名中解析场景，统计每个场景的数量"""
+    from app.services.ai_image_gen_service import scan_input_products
+    from app.services.ai_image_batch_engine import _parse_filename_scene_price
+    import os
+    from collections import Counter
+    try:
+        items = scan_input_products()
+        scene_counter = Counter()
+        for item in items:
+            base = os.path.splitext(item["image"])[0]
+            _, scene, _ = _parse_filename_scene_price(base)
+            if scene:
+                scene_counter[scene] += 1
+        if not scene_counter:
+            return {"success": True, "data": {"scenes": [], "max_count": 1}}
+        scenes = list(scene_counter.keys())
+        max_count = max(scene_counter.values())
+        return {
+            "success": True,
+            "data": {
+                "scenes": scenes,
+                "max_count": max_count,
+                "scene_counts": dict(scene_counter),
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/ai-gen/outputs")
 async def list_ai_gen_outputs(product: Optional[str] = None):
