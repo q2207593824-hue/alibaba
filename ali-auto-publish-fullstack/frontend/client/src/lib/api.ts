@@ -1354,10 +1354,7 @@ export const membershipApi = {
   ledger: (limit: number = 50) =>
     cloudMembershipApi.get("/points/ledger", { params: { limit } }),
   
-  listRechargeOrdersPaged: (params?: ...) =>
-    cloudMembershipApi.get("/recharge/list-paged", { params: params || {} }),
   
-
   createRecharge: (params: { channel: "wechat" | "alipay"; amount_yuan: number }) =>
     cloudMembershipApi.post("/recharge/create", params),
 
