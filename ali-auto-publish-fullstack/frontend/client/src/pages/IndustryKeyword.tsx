@@ -909,7 +909,17 @@ export default function IndustryKeyword() {
 
             <div className="grid grid-cols-3 gap-4 items-start">
               <div className="col-span-1 space-y-1.5">
-                <Label className="text-xs text-muted-foreground">场景（每行一个）</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">场景（每行一个）</Label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-xs px-2"
+                    onClick={handleFetchScenesFromImageDir}
+                  >
+                    从原图目录获取
+                  </Button>
+                </div>
                 <Textarea
                   value={titleScenes}
                   onChange={(e) => setTitleScenes(e.target.value)}
