@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { ChevronRight, Pause, Play, RefreshCw, Wand2 } from "lucide-react";
 import { configApi, createLogSocket, dataApi } from "@/lib/api";
+import { configApi, createLogSocket, dataApi, imageApi } from "@/lib/api";
 
 export default function IndustryKeyword() {
   const [isRunning, setIsRunning] = useState(false);
@@ -439,6 +440,24 @@ export default function IndustryKeyword() {
     return result;
   };
 
+  const handleFetchScenesFromImageDir = async () => {
+    try {
+      const res: any = await imageApi.getAiGenInputScenes();
+      const data = res?.data?.data || res?.data || {};
+      const scenes: string[] = data.scenes || [];
+      const maxCount: number = data.max_count || 1;
+      if (scenes.length === 0) {
+        toast.warning("未从图片文件名中解析到场景，请确认文件名格式为：自由名-场景-价格");
+        return;
+      }
+      setTitleScenes(scenes.join("\n"));
+      setTitleCountPerScene(String(maxCount));
+      toast.success(`已获取 ${scenes.length} 个场景，最多出现 ${maxCount} 次`);
+    } catch (e: any) {
+      toast.error(e?.message || "获取场景失败");
+    }
+  };
+  
   const handleGenerateTitles = async () => {
     try {
       if (!titleScenes.trim()) {
