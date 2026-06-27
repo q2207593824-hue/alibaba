@@ -1720,22 +1720,22 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
 
 
         # 绑定成功后：同步店铺资料到云端会员库，避免云端 me 无 company_name
+        # 使用会员自己的 Bearer Token 调用 /me/profile，无需 admin_key，客户端无感知
         cloud_sync = {"ok": False, "detail": "", "status": 0}
         try:
-            admin_key = str(getattr(get_config().payment, "admin_api_key", "") or "").strip()
-            if admin_key and current_username and (str(profile.get("company_name") or "").strip() or str(profile.get("main_category") or "").strip()):
+            company_name_val = str(profile.get("company_name") or "").strip()
+            main_category_val = str(profile.get("main_category") or "").strip()
+            if current_username and (company_name_val or main_category_val):
                 sync_resp = requests.post(
-                    f"{CLOUD_MEMBERSHIP_API_BASE}/admin/users/profile-upsert",
+                    f"{CLOUD_MEMBERSHIP_API_BASE}/me/profile",
                     json={
-                        "username": current_username,
-                        "company_name": str(profile.get("company_name") or ""),
-                        "main_category": str(profile.get("main_category") or ""),
+                        "company_name": company_name_val,
+                        "main_category": main_category_val,
                         "is_verified": str(profile.get("is_verified") or ""),
                         "service_years": str(profile.get("service_years") or ""),
                         "page_level_star": str(profile.get("page_level_star") or ""),
                     },
                     headers={
-                        "X-Admin-Key": admin_key,
                         "Authorization": f"Bearer {token}",
                         "Content-Type": "application/json",
                     },
@@ -1748,6 +1748,7 @@ async def login_cookie_by_browser_manager(authorization: str | None = Header(def
                     cloud_sync["detail"] = sync_resp.text[:300]
         except Exception as e:
             cloud_sync["detail"] = str(e)
+
 
         # 将采集到的分组发品链接包含在返回值中，让前端直接更新缓存，不依赖 GET /api/config/
         _group_url_map = {}
