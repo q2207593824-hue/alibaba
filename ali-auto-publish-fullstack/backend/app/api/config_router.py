@@ -848,8 +848,12 @@ async def fetch_specifications_from_platform(_=Depends(require_membership_or_tri
                     WebDriverWait(browser, 30).until(
                         EC.presence_of_element_located((By.ID, "struct-specification"))
                     )
+                    # 动态等待规格块出现，最多再等 10 秒，出现即继续
+                    WebDriverWait(browser, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "div.sell-o-addon[id^='p-']"))
+                    )
                 await run_in_threadpool(wait_element)
-                await asyncio.sleep(8)
+                await asyncio.sleep(1.5)   # ← 从 8 秒缩短为 1.5 秒
             except Exception:
                 logger.warning(f"[规格抓取] 规格区域未加载成功，跳过类目: {group_name}")
                 continue
