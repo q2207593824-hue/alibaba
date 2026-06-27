@@ -2676,6 +2676,35 @@ def unified_login(username: str, password: str, ip: str = "", user_agent: str = 
         admin_login_guard_success(uname, ip=ip, user_agent=user_agent)
         admin_key = _get_admin_api_key()
         if not admin_key:
+            # 本地未配置 admin_key（无 desktop.deploy.json / ALI_ADMIN_API_KEY），
+            # 自动向云端请求登录，获取真实 admin_key 并写入运行时环境变量，
+            # 这样无需手动创建配置文件，任何机器登录后都能自动同步。
+            try:
+                cloud_resp = _cloud_http_request(
+                    "POST",
+                    f"{CLOUD_MEMBERSHIP_API_BASE}/auth/login",
+                    json={"username": uname, "password": pwd},
+                    timeout=(8, 30 ),
+                )
+                cloud_data = cloud_resp.json()
+                cloud_key = str(
+                    (cloud_data.get("data") or {}).get("admin_key") or ""
+                ).strip()
+                if cloud_key:
+                    # 写入运行时环境变量，后续 _get_admin_api_key() 可读到
+                    os.environ["ALI_ADMIN_API_KEY"] = cloud_key
+                    admin_key = cloud_key
+                    logger.info("unified_login: synced admin_key from cloud for user=%s", uname)
+                    # 同时持久化到 config.json，重启后仍生效，无需手动创建 desktop.deploy.json
+                    try:
+                        from app.core.settings import config_manager
+                        config_manager.update("payment", {"admin_api_key": cloud_key})
+                        logger.info("unified_login: persisted admin_key to config.json")
+                    except Exception as _pe:
+                        logger.warning("unified_login: failed to persist admin_key: %s", _pe)
+            except Exception as _e:
+                logger.warning("unified_login: failed to fetch admin_key from cloud: %s", _e)
+        if not admin_key:
             raise ValueError(
                 "管理员 API Key 未配置，请在环境变量 ALI_ADMIN_API_KEY 或配置 payment.admin_api_key 中设置"
             )
