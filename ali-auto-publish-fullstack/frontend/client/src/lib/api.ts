@@ -452,9 +452,9 @@ cloudMembershipApi.interceptors.response.use(
     const method = String(config?.method || "get").toLowerCase();
     const isMutating = ["post", "put", "patch", "delete"].includes(method);
     const noLocalProxy =
-      /\/admin\/(users|withdraw)\b/i.test(reqPath) ||
-      (isMutating &&
-        /\/(recharge\/create|vip\/redeem|withdraw\/apply|recharge\/mock-paid|pay\/callback)\b/i.test(reqPath));
+    isMutating &&
+    /\/(recharge\/create|vip\/redeem|withdraw\/apply|recharge\/mock-paid|pay\/callback|admin\/withdraw\/(approve|reject|batch-review)|admin\/users\/create)\b/i.test(reqPath);
+  
     if (noLocalProxy) {
       return Promise.reject(error);
     }
