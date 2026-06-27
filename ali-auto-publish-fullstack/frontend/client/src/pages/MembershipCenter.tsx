@@ -798,6 +798,20 @@ export default function MembershipCenter() {
         toast.warning(`已保存 Cookie（${count} 条），但暂未采集到店铺信息，请确认已登录到店铺后台后重试`);
       } else {
         toast.success(`店铺绑定成功：${companyName || "-"} / ${mainCategory || "-"}`);
+        // ↓ 新增：绑定成功后自动抓取属性和规格
+        toast.info("正在自动抓取属性和规格，请稍候...");
+        try {
+          await configApi.fetchAttributesFromPlatform();
+          toast.success("属性抓取完成");
+        } catch (e: any) {
+          toast.warning(`属性抓取失败：${e?.message || "未知错误"}`);
+        }
+        try {
+          await configApi.fetchSpecificationsFromPlatform();
+          toast.success("规格抓取完成");
+        } catch (e: any) {
+          toast.warning(`规格抓取失败：${e?.message || "未知错误"}`);
+        }
       }
     } catch (e: any) {
       // 透出后端 detail/message，便于客户与客服定位失败环节（驱动、登录超时、网络等）
