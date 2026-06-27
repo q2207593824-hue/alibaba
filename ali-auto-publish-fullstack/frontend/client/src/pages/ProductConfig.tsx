@@ -1240,7 +1240,8 @@ export default function ProductConfig() {
                         className="text-sm"
                         onChange={(e) => {
                           const orders = [...(config?.price?.ladder_min_orders || [])];
-                          orders[i] = parseInt(e.target.value) || 0;
+                          const val = e.target.value;
+                          orders[i] = val === "" ? "" : Math.max(parseInt(val) || 0, 0);
                           updateConfig("price.ladder_min_orders", orders);
                         }}
                       />
