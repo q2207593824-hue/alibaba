@@ -1349,19 +1349,14 @@ export const membershipApi = {
   /** 管理员 Bearer 会话：从本机 backend 刷新有效的 admin_key（避免 localStorage 缓存占位符） */
   refreshAdminSessionKey: () => api.get("/membership/auth/admin-session-key", { timeout: 10000 }),
 
-  /** 桌面端 / dev 优先读本机 backend；生产浏览器直连云端 */
-  me: () =>
-    useLocalMembershipProxy()
-      ? api.get("/membership/me", { timeout: 15000 })
-      : cloudMembershipApi.get("/me", { timeout: 20000 }),
+  me: () => cloudMembershipApi.get("/me", { timeout: 20000 }),
 
-  /** 与 /me 同源 */
   ledger: (limit: number = 50) =>
-    useLocalMembershipProxy()
-      ? api.get("/membership/points/ledger", { params: { limit }, timeout: 15000 })
-      : cloudMembershipApi.get("/points/ledger", { params: { limit } }),
-
-  inviteRewards: (limit: number = 100) => cloudMembershipApi.get("/invite/rewards", { params: { limit } }),
+    cloudMembershipApi.get("/points/ledger", { params: { limit } }),
+  
+  listRechargeOrdersPaged: (params?: ...) =>
+    cloudMembershipApi.get("/recharge/list-paged", { params: params || {} }),
+  
 
   createRecharge: (params: { channel: "wechat" | "alipay"; amount_yuan: number }) =>
     cloudMembershipApi.post("/recharge/create", params),
