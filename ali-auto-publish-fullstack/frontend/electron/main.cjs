@@ -515,8 +515,31 @@ app.on('window-all-closed', () => {
 });
 
 app.whenReady().then(async () => {
+  // 强制会员云端域名直连，绕过 Clash TUN 模式/系统代理拦截
+  // PAC 脚本：echo-yiwu.cloud 和真实 IP 直连，其余走系统代理
+  try {
+    const { session } = require('electron');
+    const cloudHost = CLOUD_PUBLIC_HOST || 'echo-yiwu.cloud';
+    const cloudIp = CLOUD_REAL_IP || '43.164.196.172';
+    await session.defaultSession.setProxy({
+      mode: 'pac_script',
+      pacScript: [
+        'function FindProxyForURL(url, host) {',
+        `  if (host === '${cloudHost}') return 'DIRECT';`,
+        `  if (host === '${cloudIp}') return 'DIRECT';`,
+        `  if (shExpMatch(host, '*.${cloudHost}')) return 'DIRECT';`,
+        "  return 'SYSTEM';",
+        '}',
+      ].join('\n'),
+    });
+    pushLog('INFO', `[proxy] PAC script set: ${cloudHost} -> DIRECT, others -> SYSTEM`);
+  } catch (e) {
+    pushLog('ERROR', `[proxy] failed to set session proxy: ${String(e?.message || e)}`);
+  }
+
   seedDesktopDeployFile();
   await ensureBackendRunning();
+
 
   // 先打开主界面，避免用户感知“卡启动”
   await createWindow();
@@ -668,6 +691,87 @@ ipcMain.handle('desktop:openAlibabaLoginAndGetCookies', async (_evt, payload = {
     }
   });
 });
+
+/**
+ * IPC: 主进程代理云端请求（绕过渲染进程的 Clash/代理拦截）
+ * 使用 Node.js https 模块直接连接云端 ，不走 Chromium 网络栈
+ * payload: { method, url, headers, body, timeoutMs }
+ * 返回: { ok, status, headers, data, error }
+ */
+ipcMain.handle('desktop:cloudRequest', async (_evt, payload = {}) => {
+  const https = require('https' );
+  const http = require('http' );
+  const { URL } = require('url');
+
+  const method = String(payload?.method || 'GET').toUpperCase();
+  const urlStr = String(payload?.url || '').trim();
+  const reqHeaders = payload?.headers || {};
+  const body = payload?.body ? JSON.stringify(payload.body) : null;
+  const timeoutMs = Number(payload?.timeoutMs || 15000);
+
+  if (!urlStr) return { ok: false, error: 'url is required' };
+
+  return new Promise((resolve) => {
+    try {
+      const parsed = new URL(urlStr);
+      const isHttps = parsed.protocol === 'https:';
+      const transport = isHttps ? https : http;
+
+      const options = {
+        hostname: CLOUD_REAL_IP || parsed.hostname,
+        port: parsed.port || (isHttps ? 443 : 80 ),
+        path: parsed.pathname + (parsed.search || ''),
+        method,
+        headers: {
+          'Host': parsed.hostname,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...reqHeaders,
+          ...(body ? { 'Content-Length': Buffer.byteLength(body) } : {}),
+        },
+        rejectUnauthorized: true,
+      };
+
+      pushLog('INFO', `[cloud-req] ${method} ${urlStr} -> ${options.hostname}:${options.port}${options.path}`);
+
+      const req = transport.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          pushLog('INFO', `[cloud-req] response ${res.statusCode} for ${urlStr}`);
+          let parsed_data;
+          try { parsed_data = JSON.parse(data); } catch { parsed_data = data; }
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            headers: res.headers,
+            data: parsed_data,
+          });
+        });
+      });
+
+      req.setTimeout(timeoutMs, () => {
+        req.destroy();
+        pushLog('ERROR', `[cloud-req] timeout after ${timeoutMs}ms for ${urlStr}`);
+        resolve({ ok: false, error: `请求超时（${timeoutMs}ms）` });
+      });
+
+      req.on('error', (e) => {
+        pushLog('ERROR', `[cloud-req] error for ${urlStr}: ${e.message}`);
+        resolve({ ok: false, error: e.message, code: e.code });
+      });
+
+      if (body) req.write(body);
+      req.end();
+    } catch (e) {
+      pushLog('ERROR', `[cloud-req] exception for ${urlStr}: ${String(e?.message || e)}`);
+      resolve({ ok: false, error: String(e?.message || e) });
+    }
+  });
+});
+
+
+
 
 app.on('before-quit', () => {
   flushLogsToFile();
