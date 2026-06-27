@@ -283,12 +283,13 @@ function attachMembershipRequestHeaders(config: import("axios").InternalAxiosReq
     (config.headers as any).Authorization = `Bearer ${token}`;
   }
   (config.headers as any)["X-Client-Device-Id"] = getDeviceId();
-  // 仅管理员控制台会话附带 X-Admin-Key，避免会员请求误带残留密钥导致读到完整 config
-  if (isAdminConsoleSession()) {
-    const adminHeaders = getAdminHeaders();
-    if (adminHeaders["X-Admin-Key"]) {
-      (config.headers as any)["X-Admin-Key"] = adminHeaders["X-Admin-Key"];
-    }
+  // 不依赖 isAdminConsoleSession()，直接从 localStorage 读取 admin_key
+  const adminKey =
+      localStorage.getItem(ADMIN_KEY_STORE) ||
+      localStorage.getItem(CONTROL_ADMIN_KEY_STORE) ||
+      "";
+  if (adminKey && localStorage.getItem("admin_console_logged_in") === "1") {
+      (config.headers as any)["X-Admin-Key"] = adminKey;
   }
   return config;
 }
