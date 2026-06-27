@@ -855,3 +855,43 @@ async def api_admin_telemetry_keywords_delete(
         return {"success": True, "data": data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class MeProfileUpdateReq(BaseModel):
+    company_name: str = ""
+    main_category: str = ""
+    is_verified: str = ""
+    service_years: str = ""
+    page_level_star: str = ""
+
+@router.post("/me/profile")
+async def api_me_profile_update(
+    req: MeProfileUpdateReq,
+    authorization: Optional[str] = Header(default=None),
+):
+    """会员自助更新自己的店铺资料，只需 Bearer Token，无需 admin_key。"""
+    try:
+        token = (authorization or "").strip()
+        if token.lower().startswith("bearer "):
+            token = token[7:].strip()
+        if not token:
+            raise ValueError("缺少 Authorization")
+        me_data = me(token)
+        username = str(me_data.get("username") or "").strip()
+        if not username:
+            raise ValueError("无法识别当前用户")
+        data = admin_upsert_profile_by_username(
+            username=username,
+            company_name=req.company_name,
+            main_category=req.main_category,
+            is_verified=req.is_verified,
+            service_years=req.service_years,
+            page_level_star=req.page_level_star,
+        )
+        return {"success": True, "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+
+
