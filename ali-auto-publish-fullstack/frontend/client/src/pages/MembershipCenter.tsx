@@ -796,6 +796,17 @@ export default function MembershipCenter() {
         }));
       }
 
+      // 强制触发云端同步，确保管理员后台能立即看到公司名
+      if (companyName) {
+        membershipApi.syncProfileToCloud({
+          company_name: companyName,
+          main_category: mainCategory,
+          is_verified: String(profile?.is_verified || ""),
+          service_years: String(profile?.service_years || ""),
+          page_level_star: String(profile?.page_level_star || ""),
+        }).catch(e => console.error("云端同步失败:", e));
+      }
+      
       void loadMe();
       // 直接从登录接口返回值中读取 group_url_map，写入前端配置缓存并触发页面重渲染
       // 不依赖 GET /api/config/（该接口可能被会员限制）
