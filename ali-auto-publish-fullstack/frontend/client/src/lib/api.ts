@@ -1426,9 +1426,10 @@ export const membershipApi = {
   listRechargeOrdersPaged: (params?: { status?: string; page?: number; page_size?: number }) =>
     cloudMembershipApi.get("/recharge/list-paged", { params: params || {} }),
 
-
   redeemVip: (months: number = 1) => cloudMembershipApi.post("/vip/redeem", { months }),
 
+  updateMyProfile: (params: any) => cloudMembershipApi.post("/me/profile", params),
+  
   applyWithdraw: (params: { points: number; channel: string; account: string }) =>
     cloudMembershipApi.post("/withdraw/apply", params),
 
