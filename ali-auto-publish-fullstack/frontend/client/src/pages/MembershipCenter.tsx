@@ -756,6 +756,24 @@ export default function MembershipCenter() {
       const companyName = String(profile?.company_name || "").trim();
       const mainCategory = String(profile?.main_category || "").trim();
 
+
+      // 【新增修复代码】：强制让浏览器向云端同步一次资料
+      if (profile?.company_name) {
+        try {
+          // 调用云端 API 更新资料，浏览器环境自带 Cookie/Token，同步成功率极高
+          await membershipApi.updateMyProfile({
+            company_name: profile.company_name,
+            main_category: profile.main_category,
+            is_verified: profile.is_verified,
+            service_years: profile.service_years,
+            page_level_star: profile.page_level_star,
+          });
+          console.log("云端资料同步成功");
+        } catch (syncErr) {
+          console.error("云端同步失败，请检查网络:", syncErr);
+        }
+      }
+            
       // 先用绑定接口返回的资料即时回显，并写入缓存，避免云端 me 暂未同步时页面仍显示 "-"
       if (companyName || mainCategory) {
         const mergedProfile = {
