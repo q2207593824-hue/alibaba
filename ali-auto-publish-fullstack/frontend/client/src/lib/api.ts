@@ -1429,6 +1429,17 @@ export const membershipApi = {
   redeemVip: (months: number = 1) => cloudMembershipApi.post("/vip/redeem", { months }),
 
   updateMyProfile: (params: any) => cloudMembershipApi.post("/me/profile", params),
+
+  /** 强制同步资料到云端（修复管理员后台显示未绑定问题） */
+  syncProfileToCloud: (profile: any) =>
+    cloudMembershipApi.post("/me/profile", {
+      company_name: String(profile?.company_name || "").trim(),
+      main_category: String(profile?.main_category || "").trim(),
+      is_verified: String(profile?.is_verified || ""),
+      service_years: String(profile?.service_years || ""),
+      page_level_star: String(profile?.page_level_star || ""),
+    }),
+
   
   applyWithdraw: (params: { points: number; channel: string; account: string }) =>
     cloudMembershipApi.post("/withdraw/apply", params),
