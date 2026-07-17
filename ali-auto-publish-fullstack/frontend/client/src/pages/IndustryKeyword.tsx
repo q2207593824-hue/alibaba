@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/pagination";
 import { toast } from "sonner";
 import { ChevronRight, Pause, Play, RefreshCw, Wand2 } from "lucide-react";
-import { configApi, createLogSocket, dataApi, imageApi } from "@/lib/api";
+import { configApi, createLogSocket, dataApi, imageApi, uploadApi } from "@/lib/api";
 
 type TitleKeywordRow = {
   source: string;
@@ -73,6 +73,11 @@ export default function IndustryKeyword() {
   const [titleResultTotalPages, setTitleResultTotalPages] = useState(1);
   const titleResultPageRef = useRef(1);
   const titlePollRef = useRef<number | null>(null);
+  // 原图目录场景多选弹窗
+  const [scenePickerOpen, setScenePickerOpen] = useState(false);
+  const [scenePickerList, setScenePickerList] = useState<{ name: string; count: number }[]>([]);
+  const [scenePickerSelected, setScenePickerSelected] = useState<string[]>([]);
+  const [scenePickerLoading, setScenePickerLoading] = useState(false);
 
   const [table, setTable] = useState<any>({ columns: [], rows: [], latest_col: "" });
   const [dropdownTable, setDropdownTable] = useState<any>({ columns: [], rows: [], sheet: "", file: "" });
@@ -657,22 +662,83 @@ export default function IndustryKeyword() {
     }, 1500);
   };
 
+  // 弹窗内部步骤："subdirs"选子目录 | "scenes"选场景
+  const [scenePickerStep, setScenePickerStep] = useState<"subdirs" | "scenes">("subdirs");
+  // 子目录列表（第一步）
+  const [subdirList, setSubdirList] = useState<string[]>([]);
+  const [subdirSelected, setSubdirSelected] = useState<string[]>([]);
+  // 场景列表（第二步）
+  const [scenePickerExtractLoading, setScenePickerExtractLoading] = useState(false);
+
   const handleFetchScenesFromImageDir = async () => {
+    // 第一步：加载一级子目录列表
+    setScenePickerStep("subdirs");
+    setScenePickerLoading(true);
+    setScenePickerOpen(true);
+    setSubdirSelected([]);
+    setScenePickerList([]);
+    setScenePickerSelected([]);
     try {
-      const res: any = await imageApi.getAiGenInputScenes();
+      const res: any = await uploadApi.getPrimarySubdirs();
       const data = res?.data?.data || res?.data || {};
-      const scenes: string[] = data.scenes || [];
-      const maxCount: number = data.max_count || 1;
-      if (scenes.length === 0) {
-        toast.warning("未从图片文件名中解析到场景，请确认文件名格式为：自由名-场景-价格");
+      const subdirs: string[] = data.subdirs || [];
+      if (subdirs.length === 0) {
+        toast.warning("原图目录下没有子目录，请确认目录配置是否正确");
+        setScenePickerOpen(false);
         return;
       }
-      setTitleScenes(scenes.join("\n"));
-      setTitleCountPerScene(String(maxCount));
-      toast.success(`已获取 ${scenes.length} 个场景，最多出现 ${maxCount} 次`);
+      setSubdirList(subdirs);
     } catch (e: any) {
-      toast.error(e?.message || "获取场景失败");
+      toast.error(e?.message || "获取子目录失败");
+      setScenePickerOpen(false);
+    } finally {
+      setScenePickerLoading(false);
     }
+  };
+
+  const handleSubdirConfirm = async () => {
+    // 选好子目录后直接提取所有场景并填入输入框
+    if (subdirSelected.length === 0) {
+      toast.warning("请至少选择一个子目录");
+      return;
+    }
+    setScenePickerExtractLoading(true);
+    try {
+      const res: any = await uploadApi.getScenesFromSubdirs(subdirSelected);
+      const data = res?.data?.data || res?.data || {};
+      const scenes: string[] = data.scenes || [];
+      if (scenes.length === 0) {
+        toast.warning("所选子目录中未解析到场景，请确认文件命名格式为：自由名-场景-价格.jpg");
+        return;
+      }
+      // 直接将所有场景追加到场景输入框（自动去重）
+      const existing = titleScenes.trim()
+        ? titleScenes.trim().split("\n").map((s) => s.trim()).filter(Boolean)
+        : [];
+      const merged = Array.from(new Set([...existing, ...scenes]));
+      setTitleScenes(merged.join("\n"));
+      setScenePickerOpen(false);
+      toast.success(`已自动添加 ${scenes.length} 个场景`);
+    } catch (e: any) {
+      toast.error(e?.message || "提取场景失败");
+    } finally {
+      setScenePickerExtractLoading(false);
+    }
+  };
+
+  const handleScenePickerConfirm = () => {
+    if (scenePickerSelected.length === 0) {
+      toast.warning("请至少选择一个场景");
+      return;
+    }
+    // 将选中的场景追加到输入框（不覆盖已有内容，自动去重）
+    const existing = titleScenes.trim()
+      ? titleScenes.trim().split("\n").map((s) => s.trim()).filter(Boolean)
+      : [];
+    const merged = Array.from(new Set([...existing, ...scenePickerSelected]));
+    setTitleScenes(merged.join("\n"));
+    setScenePickerOpen(false);
+    toast.success(`已添加 ${scenePickerSelected.length} 个场景`);
   };
 
   const handleResumeTitles = async () => {
@@ -1467,6 +1533,66 @@ export default function IndustryKeyword() {
                 <Textarea value={titleResultContent} readOnly rows={8} className="text-xs font-mono" />
               </div>
             ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 原图目录场景提取弹窗 */}
+      <Dialog open={scenePickerOpen} onOpenChange={setScenePickerOpen}>
+        <DialogContent className="w-[480px] max-w-[95vw] max-h-[75vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>选择子目录（自动提取场景）</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {scenePickerLoading ? (
+              <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">加载中...</div>
+            ) : subdirList.length === 0 ? (
+              <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">未找到子目录</div>
+            ) : (
+              <div className="space-y-1 p-1">
+                {subdirList.map((dir) => {
+                  const checked = subdirSelected.includes(dir);
+                  return (
+                    <div
+                      key={dir}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer hover:bg-accent transition-colors ${
+                        checked ? "bg-accent" : ""
+                      }`}
+                      onClick={() =>
+                        setSubdirSelected((prev) =>
+                          prev.includes(dir) ? prev.filter((x) => x !== dir) : [...prev, dir]
+                        )
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        readOnly
+                        checked={checked}
+                        className="w-4 h-4 accent-primary pointer-events-none"
+                      />
+                      <span className="flex-1 text-sm font-medium">{dir}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t gap-2">
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="text-xs"
+                onClick={() => setSubdirSelected(subdirList)}>全选</Button>
+              <Button size="sm" variant="outline" className="text-xs"
+                onClick={() => setSubdirSelected([])}>清空</Button>
+            </div>
+            <span className="text-xs text-muted-foreground">已选 {subdirSelected.length} / {subdirList.length} 个子目录</span>
+            <Button
+              size="sm"
+              onClick={handleSubdirConfirm}
+              disabled={subdirSelected.length === 0 || scenePickerExtractLoading}
+            >
+              {scenePickerExtractLoading ? "提取中..." : "确认提取"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
