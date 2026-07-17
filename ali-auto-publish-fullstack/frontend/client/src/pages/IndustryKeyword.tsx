@@ -6,6 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
 import { toast } from "sonner";
 import { ChevronRight, Pause, Play, RefreshCw, Wand2 } from "lucide-react";
 import { configApi, createLogSocket, dataApi, imageApi } from "@/lib/api";
@@ -52,6 +61,17 @@ export default function IndustryKeyword() {
   const [titleMinKeywordHeat, setTitleMinKeywordHeat] = useState("0");
   const [titleRunMessage, setTitleRunMessage] = useState("");
   const [titleRunError, setTitleRunError] = useState("");
+  const [titleCanResume, setTitleCanResume] = useState(false);
+  const [titleProgress, setTitleProgress] = useState({
+    completedScenes: 0,
+    totalScenes: 0,
+    generatedTitles: 0,
+    totalTitles: 0,
+  });
+  const [titleResultPage, setTitleResultPage] = useState(1);
+  const [titleResultTotal, setTitleResultTotal] = useState(0);
+  const [titleResultTotalPages, setTitleResultTotalPages] = useState(1);
+  const titleResultPageRef = useRef(1);
   const titlePollRef = useRef<number | null>(null);
 
   const [table, setTable] = useState<any>({ columns: [], rows: [], latest_col: "" });
@@ -458,6 +478,12 @@ export default function IndustryKeyword() {
     setTitleSelectedSourcePools(activeSourcePools);
     setTitleRunMessage("");
     setTitleRunError("");
+    titleResultPageRef.current = 1;
+    setTitleResultPage(1);
+    void (async () => {
+      await refreshTitleStatus();
+      await refreshTitleResult(1);
+    })();
   };
 
   const toggleSelectTitleKeyword = (kw: string) => {
@@ -487,19 +513,35 @@ export default function IndustryKeyword() {
       const res = await dataApi.getIndustryKeywordTitleGenerateStatus();
       const payload = res?.data || res;
       const status = payload?.data || payload;
+      const persistent = status?.persistent_progress || {};
       const s = String(status?.status || "idle");
+      const completedScenes = Number(persistent?.completed_scenes ?? status?.progress ?? 0);
+      const totalScenes = Number(persistent?.total_scenes ?? status?.total ?? 0);
+      const generatedTitles = Number(persistent?.generated_titles ?? 0);
+      const totalTitles = Number(persistent?.total_titles ?? 0);
+      const canResume = Boolean(persistent?.can_resume);
+      setTitleCanResume(canResume);
+      setTitleProgress({ completedScenes, totalScenes, generatedTitles, totalTitles });
+
+      const progressText = totalScenes > 0
+        ? `已完成 ${completedScenes}/${totalScenes} 个场景，已生成 ${generatedTitles}/${totalTitles} 条标题`
+        : "";
       const msg =
         s === "running"
-          ? `运行中${status?.current_step ? `｜${status.current_step}` : ""}`
+          ? `运行中${status?.current_step ? `｜${status.current_step}` : progressText ? `｜${progressText}` : ""}`
           : s === "stopping"
             ? "正在停止"
             : s === "completed"
-              ? "已完成"
+              ? `已完成${progressText ? `｜${progressText}` : ""}`
               : s === "failed"
-                ? `已失败${status?.error ? `｜${status.error}` : ""}`
-                : "空闲";
+                ? `已失败${status?.error ? `｜${status.error}` : ""}${canResume ? "｜可从断点继续" : ""}`
+                : canResume
+                  ? `检测到未完成任务｜${progressText}｜可从断点继续`
+                  : persistent?.exists && progressText
+                    ? `上次任务${persistent?.status === "completed" ? "已完成" : "已保存"}｜${progressText}`
+                    : "空闲";
       setTitleRunMessage(msg);
-      setTitleRunError(s === "failed" ? String(status?.error || "任务执行失败") : "");
+      setTitleRunError(s === "failed" ? String(status?.error || persistent?.last_error || "任务执行失败") : "");
       return s;
     } catch (e: any) {
       setTitleRunMessage("");
@@ -508,12 +550,111 @@ export default function IndustryKeyword() {
     }
   };
 
-  const refreshTitleResult = async () => {
-    const res = await dataApi.getIndustryKeywordTitleGenerateResult();
+  const refreshTitleResult = async (page: number = titleResultPageRef.current) => {
+    const targetPage = Math.max(1, page);
+    const res = await dataApi.getIndustryKeywordTitleGenerateResultPaged(targetPage, 20);
     const payload = res?.data || res;
     const data = payload?.data || payload;
-    const result = data?.result ?? data;
+    let result = data?.result ?? data;
+
+    // 兼容服务刚升级、检查点为空但内存任务仍保有结果的情况：分页结果为空时
+    // 再读取一次完整结果接口，并在前端切成当前页，避免“任务完成但列表不显示”。
+    const pagedRows = Array.isArray(result?.rows) ? result.rows : [];
+    if (!result || pagedRows.length === 0) {
+      try {
+        const legacyRes = await dataApi.getIndustryKeywordTitleGenerateResult();
+        const legacyPayload = legacyRes?.data || legacyRes;
+        const legacyData = legacyPayload?.data || legacyPayload;
+        const legacyResult = legacyData?.result ?? legacyData;
+        const allRows = Array.isArray(legacyResult?.rows) ? legacyResult.rows : [];
+        if (legacyResult && allRows.length > 0) {
+          const total = allRows.length;
+          const totalPages = Math.max(1, Math.ceil(total / 20));
+          const responsePage = Math.min(targetPage, totalPages);
+          const start = (responsePage - 1) * 20;
+          result = {
+            ...legacyResult,
+            content: "",
+            rows: allRows.slice(start, start + 20),
+            pagination: { page: responsePage, page_size: 20, total, total_pages: totalPages },
+          };
+        }
+      } catch {
+        // 保留分页接口原始结果，由下面的空结果分支统一处理。
+      }
+    }
+
+    if (!result) {
+      setTitleResultRows([]);
+      setTitleResultTotal(0);
+      setTitleResultTotalPages(1);
+      return null;
+    }
+    const pagination = result?.pagination || {};
+    const resultRows = Array.isArray(result?.rows) ? result.rows : [];
+    const responsePage = Math.max(1, Number(pagination?.page || targetPage));
+    titleResultPageRef.current = responsePage;
+    setTitleResultPage(responsePage);
+    setTitleResultRows(resultRows);
+    setTitleResultTotal(Number(pagination?.total ?? resultRows.length));
+    setTitleResultTotalPages(Math.max(1, Number(pagination?.total_pages || 1)));
+    setTitleResultContent(String(result?.content || ""));
+    setTitleResultFile(String(result?.title_excel_write?.file || result?.output_file || ""));
     return result;
+  };
+
+  const loadTitleResultPage = async (page: number) => {
+    const targetPage = Math.min(Math.max(1, page), Math.max(1, titleResultTotalPages));
+    try {
+      await refreshTitleResult(targetPage);
+    } catch (e: any) {
+      toast.error(e?.message || "加载标题结果分页失败");
+    }
+  };
+
+  const startTitlePolling = () => {
+    stopTitlePoll();
+    titlePollRef.current = window.setInterval(async () => {
+      const s = await refreshTitleStatus();
+      try {
+        await refreshTitleResult(titleResultPageRef.current);
+      } catch {
+        // 状态轮询继续运行，下一轮自动重试分页结果读取。
+      }
+      if (s === "completed" || s === "failed" || s === "idle") {
+        stopTitlePoll();
+        setTitleGenerating(false);
+        if (s === "completed") {
+          const result: any = await refreshTitleResult(titleResultPageRef.current);
+          const rows = Array.isArray(result?.rows) ? result.rows : [];
+          const total = Number(result?.pagination?.total ?? rows.length);
+          const w = result?.title_excel_write || {};
+          const added = Number(w?.added || 0);
+          const skipped = Number(w?.skipped || 0);
+          const writeErr = String(w?.error || "");
+          const excelFile = String(w?.file || "");
+          const excelCreated = Boolean(w?.created);
+          if (total <= 0) {
+            const message = "任务已完成，但未读取到任何生成标题，请更新后端文件并重启后端后重新运行";
+            setTitleRunError(message);
+            toast.error(message);
+          } else if (writeErr) {
+            const message = `已生成 ${total} 条，但写入标题Excel失败：${writeErr}`;
+            setTitleRunError(message);
+            toast.error(message);
+          } else if (added + skipped <= 0) {
+            const message = `已生成 ${total} 条，但Excel写入统计为0${excelFile ? `｜目标：${excelFile}` : ""}`;
+            setTitleRunError(message);
+            toast.error(message);
+          } else {
+            setTitleRunError("");
+            toast.success(
+              `标题生成完成，共 ${total} 条；${excelCreated ? "已新建标题Excel并写入" : "已追加到标题Excel"} ${added} 条，重复 ${skipped} 条${excelFile ? `｜${excelFile}` : ""}`
+            );
+          }
+        }
+      }
+    }, 1500);
   };
 
   const handleFetchScenesFromImageDir = async () => {
@@ -533,7 +674,25 @@ export default function IndustryKeyword() {
       toast.error(e?.message || "获取场景失败");
     }
   };
-  
+
+  const handleResumeTitles = async () => {
+    try {
+      stopTitlePoll();
+      setTitleGenerating(true);
+      setTitleRunError("");
+      setTitleRunMessage("正在恢复上次任务...");
+      await dataApi.resumeIndustryKeywordTitleGenerate();
+      toast.success("已从上次断点恢复标题生成任务");
+      await refreshTitleStatus();
+      await refreshTitleResult(titleResultPageRef.current);
+      startTitlePolling();
+    } catch (e: any) {
+      setTitleGenerating(false);
+      stopTitlePoll();
+      toast.error(e?.message || "恢复标题生成任务失败");
+    }
+  };
+
   const handleGenerateTitles = async () => {
     try {
       if (!titleScenes.trim()) {
@@ -559,10 +718,33 @@ export default function IndustryKeyword() {
         return;
       }
 
+      const sceneList = Array.from(new Set(
+        titleScenes.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
+      ));
+      const expectedTitles = sceneList.length * parsedCount;
+      const scenesPerBatch = Math.max(1, Math.floor(20 / parsedCount));
+      const estimatedBatches = Math.ceil(sceneList.length / scenesPerBatch);
+      if (expectedTitles >= 100) {
+        const confirmed = window.confirm(
+          `即将启动大规模标题生成任务：\n\n` +
+          `场景数：${sceneList.length}\n` +
+          `每个场景：${parsedCount} 条\n` +
+          `预计标题总数：${expectedTitles} 条\n` +
+          `预计基础请求批次：${estimatedBatches} 批（缺失补充请求不计入）\n\n` +
+          `系统会逐场景写入Excel并保存断点。确认开始吗？`
+        );
+        if (!confirmed) return;
+      }
+
       stopTitlePoll();
       setTitleGenerating(true);
       setTitleRunError("");
       setTitleRunMessage("启动中...");
+      titleResultPageRef.current = 1;
+      setTitleResultPage(1);
+      setTitleResultRows([]);
+      setTitleResultTotal(0);
+      setTitleResultTotalPages(1);
 
       const keywordsToUse = titleSelectedKeywords.length > 0 ? titleSelectedKeywords : activeTitleKeywords;
       await dataApi.startIndustryKeywordTitleGenerate({
@@ -575,33 +757,13 @@ export default function IndustryKeyword() {
         min_keyword_heat: minHeat,
         output_file: outputFile || undefined,
         dropdown_output_file: dropdownOutputFile || undefined,
+        resume: false,
       });
-      toast.success("标题生成任务已启动");
+      toast.success(`标题生成任务已启动：预计 ${expectedTitles} 条，约 ${estimatedBatches} 个基础批次`);
 
       await refreshTitleStatus();
-      titlePollRef.current = window.setInterval(async () => {
-        const s = await refreshTitleStatus();
-        if (s === "completed" || s === "failed" || s === "idle") {
-          stopTitlePoll();
-          setTitleGenerating(false);
-          if (s === "completed") {
-            try {
-              const result: any = await refreshTitleResult();
-              setTitleResultContent(String(result?.content || ""));
-              setTitleResultRows(Array.isArray(result?.rows) ? result.rows : []);
-              setTitleResultFile(String(result?.output_file || ""));
-              const w = result?.title_excel_write;
-              const added = Number(w?.added || 0);
-              const skipped = Number(w?.skipped || 0);
-              const writeErr = String(w?.error || "");
-              if (writeErr) toast.error(`标题已生成，但写入标题Excel失败：${writeErr}`);
-              else toast.success(`标题生成完成，写入标题Excel +${added}（跳过重复 ${skipped}）`);
-            } catch (e: any) {
-              toast.error(e?.message || "获取生成结果失败");
-            }
-          }
-        }
-      }, 1200);
+      await refreshTitleResult(1);
+      startTitlePolling();
     } catch (e: any) {
       setTitleGenerating(false);
       stopTitlePoll();
@@ -1165,18 +1327,35 @@ export default function IndustryKeyword() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleGenerateTitles} disabled={titleGenerating}>
-                {titleGenerating ? "生成中..." : "运行"}
-              </Button>
-              {titleResultFile ? <span className="text-xs text-muted-foreground">已保存：{titleResultFile}</span> : null}
-              {titleRunMessage ? <span className="text-xs text-muted-foreground">{titleRunMessage}</span> : null}
-              {titleRunError ? <span className="text-xs text-destructive">{titleRunError}</span> : null}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={handleGenerateTitles} disabled={titleGenerating}>
+                  {titleGenerating ? "生成中..." : "运行新任务"}
+                </Button>
+                {titleCanResume ? (
+                  <Button size="sm" variant="outline" onClick={handleResumeTitles} disabled={titleGenerating}>
+                    继续上次任务
+                  </Button>
+                ) : null}
+                {titleResultFile ? <span className="text-xs text-muted-foreground">标题Excel：{titleResultFile}</span> : null}
+              </div>
+              {titleProgress.totalScenes > 0 ? (
+                <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs">
+                  <span className="font-medium">任务进度：</span>
+                  已完成 {titleProgress.completedScenes}/{titleProgress.totalScenes} 个场景，
+                  已生成 {titleProgress.generatedTitles}/{titleProgress.totalTitles} 条标题
+                </div>
+              ) : null}
+              {titleRunMessage ? <div className="text-xs text-muted-foreground">{titleRunMessage}</div> : null}
+              {titleRunError ? <div className="text-xs text-destructive">{titleRunError}</div> : null}
             </div>
 
             {titleResultRows.length > 0 ? (
               <div className="rounded-md border border-border/50">
-                <div className="px-3 py-2 text-xs text-muted-foreground border-b">生成结果（场景，标题）</div>
+                <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-muted-foreground border-b">
+                  <span>生成结果（场景，标题）</span>
+                  <span>共 {titleResultTotal} 条｜第 {titleResultPage}/{titleResultTotalPages} 页｜每页 20 条</span>
+                </div>
                 <div className="max-h-56 overflow-auto">
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-muted/80">
@@ -1195,6 +1374,90 @@ export default function IndustryKeyword() {
                     </tbody>
                   </table>
                 </div>
+                {titleResultTotalPages > 1 ? (
+                  <div className="border-t px-3 py-2">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            href="#"
+                            className={titleResultPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              if (titleResultPage > 1) void loadTitleResultPage(titleResultPage - 1);
+                            }}
+                          />
+                        </PaginationItem>
+                        {titleResultPage > 3 ? (
+                          <>
+                            <PaginationItem>
+                              <PaginationLink
+                                href="#"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  void loadTitleResultPage(1);
+                                }}
+                              >
+                                1
+                              </PaginationLink>
+                            </PaginationItem>
+                            {titleResultPage > 4 ? (
+                              <PaginationItem><PaginationEllipsis /></PaginationItem>
+                            ) : null}
+                          </>
+                        ) : null}
+                        {Array.from(
+                          { length: Math.min(5, titleResultTotalPages) },
+                          (_, index) => Math.max(
+                            1,
+                            Math.min(titleResultPage - 2, titleResultTotalPages - 4)
+                          ) + index
+                        ).map((page) => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              href="#"
+                              isActive={page === titleResultPage}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                void loadTitleResultPage(page);
+                              }}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        {titleResultPage < titleResultTotalPages - 2 ? (
+                          <>
+                            {titleResultPage < titleResultTotalPages - 3 ? (
+                              <PaginationItem><PaginationEllipsis /></PaginationItem>
+                            ) : null}
+                            <PaginationItem>
+                              <PaginationLink
+                                href="#"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  void loadTitleResultPage(titleResultTotalPages);
+                                }}
+                              >
+                                {titleResultTotalPages}
+                              </PaginationLink>
+                            </PaginationItem>
+                          </>
+                        ) : null}
+                        <PaginationItem>
+                          <PaginationNext
+                            href="#"
+                            className={titleResultPage >= titleResultTotalPages ? "pointer-events-none opacity-50" : ""}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              if (titleResultPage < titleResultTotalPages) void loadTitleResultPage(titleResultPage + 1);
+                            }}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -1210,3 +1473,4 @@ export default function IndustryKeyword() {
     </div>
   );
 }
+
