@@ -1204,7 +1204,7 @@ export default function ProductConfig() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-4 gap-4 items-center">
+                <div className="grid grid-cols-6 gap-4 items-center">
                   <Label className="text-sm text-right text-muted-foreground">汇率 (CNY/USD)</Label>
                   <Input
                     type="number"
@@ -1220,6 +1220,11 @@ export default function ProductConfig() {
                   <Switch
                     checked={config?.price?.enable_random_float ?? false}
                     onCheckedChange={(v) => updateConfig("price.enable_random_float", v)}
+                  />
+                  <Label className="text-sm text-right text-muted-foreground">价格取整数</Label>
+                  <Switch
+                    checked={config?.price?.round_price_to_integer ?? true}
+                    onCheckedChange={(v) => updateConfig("price.round_price_to_integer", v)}
                   />
                 </div>
                 <Separator />
