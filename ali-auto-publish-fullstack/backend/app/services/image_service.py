@@ -13,13 +13,10 @@ import random
 from datetime import datetime
 from collections import deque
 from typing import Dict, List, Optional, Tuple
-
 import pandas as pd
-
 from app.core.settings import get_config
 from app.core.task_manager import TaskInfo
 from app.core.logger import setup_logger
-
 logger = setup_logger("image_service")
 
 _MAIN_IMAGE_ROUND_ROBIN_CACHE: Dict[Tuple[int, str], deque] = {}
@@ -601,8 +598,14 @@ def _get_compatible_title_scene(
 
 
 def _get_title_scenes(excel_path: str) -> List[str]:
+    """使用 with pd.ExcelFile 确保句柄及时释放，不产生任何临时文件。"""
     try:
-        df = pd.read_excel(excel_path, sheet_name="产品标题")
+        if not excel_path or not os.path.exists(excel_path):
+            return ["默认场景"]
+        with pd.ExcelFile(excel_path) as xf:
+            if "产品标题" not in xf.sheet_names:
+                return ["默认场景"]
+            df = xf.parse(sheet_name="产品标题")
         for col in ("场景", "标题场景"):
             if col in df.columns:
                 scenes = df[col].dropna().astype(str).str.strip().unique().tolist()
