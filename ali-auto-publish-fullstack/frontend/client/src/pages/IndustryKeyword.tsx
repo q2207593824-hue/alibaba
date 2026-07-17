@@ -8,8 +8,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ChevronRight, Pause, Play, RefreshCw, Wand2 } from "lucide-react";
-import { configApi, createLogSocket, dataApi } from "@/lib/api";
 import { configApi, createLogSocket, dataApi, imageApi } from "@/lib/api";
+
+type TitleKeywordRow = {
+  source: string;
+  keyword: string;
+  heat: number;
+};
+
+const parseKeywordHeat = (value: any): number => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const text = String(value ?? "").replace(/,/g, "").replace(/%/g, "").trim();
+  if (!text) return 0;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 export default function IndustryKeyword() {
   const [isRunning, setIsRunning] = useState(false);
@@ -35,6 +48,8 @@ export default function IndustryKeyword() {
   const [titleResultRows, setTitleResultRows] = useState<Array<{ scene: string; title: string }>>([]);
   const [titleResultFile, setTitleResultFile] = useState("");
   const [titleSelectedKeywords, setTitleSelectedKeywords] = useState<string[]>([]);
+  const [titleSelectedSourcePools, setTitleSelectedSourcePools] = useState<string[]>([]);
+  const [titleMinKeywordHeat, setTitleMinKeywordHeat] = useState("0");
   const [titleRunMessage, setTitleRunMessage] = useState("");
   const [titleRunError, setTitleRunError] = useState("");
   const titlePollRef = useRef<number | null>(null);
@@ -56,7 +71,7 @@ export default function IndustryKeyword() {
     const columns = Array.isArray(table?.columns) ? table.columns : [];
     if (!rows.length || !columns.length) return [];
 
-    const metricCols = columns.filter((c: string) => c !== "关键词");
+    const metricCols = columns.filter((c: string) => c !== "关键词" && c !== "源关键词");
     if (!metricCols.length) return rows;
 
     const latestMetricCol = latestCol && metricCols.includes(latestCol) ? latestCol : metricCols[0];
@@ -98,48 +113,94 @@ export default function IndustryKeyword() {
       .map((row: any) => {
         const origin = String(row?.["原词"] ?? row?.["关键词"] ?? row?.["keyword"] ?? "").trim();
         const suggestion = String(row?.["下拉词"] ?? row?.["US"] ?? row?.["suggestKeyword"] ?? "").trim();
-        return { 原词: origin, 下拉词: suggestion };
+        const source = String(row?.["源关键词"] ?? origin).trim();
+        const heat = parseKeywordHeat(row?.["关键词热度"]);
+        return { 源关键词: source, 原词: origin, 关键词热度: heat, 下拉词: suggestion };
       })
-      .filter((row: any) => row.原词 || row.下拉词);
+      .filter((row: any) => row.源关键词 || row.原词 || row.下拉词);
   }, [dropdownTable]);
   const filteredDropdownRows = useMemo(() => {
     const q = dropdownQuery.trim().toLowerCase();
     if (!q) return dropdownRows;
     return dropdownRows.filter((row: any) => {
-      const a = String(row?.["原词"] ?? "").toLowerCase();
-      const b = String(row?.["下拉词"] ?? "").toLowerCase();
-      return a.includes(q) || b.includes(q);
+      const source = String(row?.["源关键词"] ?? "").toLowerCase();
+      const origin = String(row?.["原词"] ?? "").toLowerCase();
+      const suggestion = String(row?.["下拉词"] ?? "").toLowerCase();
+      return source.includes(q) || origin.includes(q) || suggestion.includes(q);
     });
   }, [dropdownRows, dropdownQuery]);
-  const industryTitleKeywords = useMemo<string[]>(
+
+  const industryTitleRows = useMemo<TitleKeywordRow[]>(() => {
+    const rows = Array.isArray(table?.rows) ? table.rows : [];
+    return rows
+      .map((row: any) => {
+        const keyword = String(row?.["关键词"] ?? "").trim();
+        const source = String(row?.["源关键词"] ?? keyword).trim();
+        return { source, keyword, heat: latestCol ? parseKeywordHeat(row?.[latestCol]) : 0 };
+      })
+      .filter((row: any) => row.source && row.keyword);
+  }, [table, latestCol]);
+  const dropdownTitleRows = useMemo<TitleKeywordRow[]>(
     () =>
-      Array.from(
-        new Set<string>(
-          filteredKeywordRows
-            .map((r: any) => String(r?.["关键词"] ?? "").trim())
-            .filter((x: string) => Boolean(x))
-        )
-      ),
-    [filteredKeywordRows]
+      dropdownRows
+        .map((row: any) => ({
+          source: String(row?.["源关键词"] ?? row?.["原词"] ?? "").trim(),
+          keyword: String(row?.["下拉词"] ?? "").trim(),
+          heat: parseKeywordHeat(row?.["关键词热度"]),
+        }))
+        .filter((row: any) => row.source && row.keyword),
+    [dropdownRows]
   );
-  const dropdownTitleKeywords = useMemo<string[]>(
+  const activeTitleRows: TitleKeywordRow[] =
+    titleMode === "industry_hot" ? industryTitleRows : dropdownTitleRows;
+  const activeSourcePools = useMemo<string[]>(
+    () => Array.from(new Set<string>(activeTitleRows.map((row: TitleKeywordRow) => row.source))),
+    [activeTitleRows]
+  );
+  const titleSelectedSourcePoolSet = useMemo(
+    () => new Set(titleSelectedSourcePools),
+    [titleSelectedSourcePools]
+  );
+  const parsedTitleMinHeat = parseKeywordHeat(titleMinKeywordHeat);
+  const eligibleTitleRows = useMemo<TitleKeywordRow[]>(
     () =>
-      Array.from(
-        new Set<string>(
-          filteredDropdownRows
-            .map((r: any) => String(r?.["下拉词"] ?? "").trim())
-            .filter((x: string) => Boolean(x))
-        )
+      activeTitleRows.filter(
+        (row: TitleKeywordRow) => titleSelectedSourcePoolSet.has(row.source) && row.heat >= parsedTitleMinHeat
       ),
-    [filteredDropdownRows]
+    [activeTitleRows, titleSelectedSourcePoolSet, parsedTitleMinHeat]
   );
-  const activeTitleKeywords = titleMode === "industry_hot" ? industryTitleKeywords : dropdownTitleKeywords;
+  const activeTitleKeywordDetails = useMemo(() => {
+    const detailMap = new Map<string, { keyword: string; sources: string[]; heat: number }>();
+    for (const row of eligibleTitleRows) {
+      const key = row.keyword.toLowerCase();
+      const current = detailMap.get(key);
+      if (!current) {
+        detailMap.set(key, { keyword: row.keyword, sources: [row.source], heat: row.heat });
+        continue;
+      }
+      if (!current.sources.includes(row.source)) current.sources.push(row.source);
+      current.heat = Math.max(current.heat, row.heat);
+    }
+    return Array.from(detailMap.values()).sort((a, b) => b.heat - a.heat);
+  }, [eligibleTitleRows]);
+  const activeTitleKeywords = useMemo(
+    () => activeTitleKeywordDetails.map((row) => row.keyword),
+    [activeTitleKeywordDetails]
+  );
   const titleSelectedSet = useMemo(() => new Set(titleSelectedKeywords), [titleSelectedKeywords]);
 
   useEffect(() => {
-    // 模式切换或表数据刷新时：清理掉不存在的已选关键词
+    setTitleSelectedSourcePools((prev) => {
+      const valid = prev.filter((source) => activeSourcePools.includes(source));
+      return valid.length > 0 ? valid : activeSourcePools;
+    });
+    setTitleSelectedKeywords([]);
+  }, [titleMode, activeSourcePools]);
+
+  useEffect(() => {
+    // 关键词池或热度变化时，清理掉已经不符合筛选条件的手工选词。
     setTitleSelectedKeywords((prev) => prev.filter((kw) => activeTitleKeywords.includes(kw)));
-  }, [titleMode, activeTitleKeywords]);
+  }, [activeTitleKeywords]);
 
   const toggleSelectKeyword = (row: any) => {
     const kw = String(row?.["关键词"] || "").trim();
@@ -150,7 +211,8 @@ export default function IndustryKeyword() {
       return [...prev, kw];
     });
   };
-  const getDropdownRowKey = (row: any) => `${String(row?.["原词"] ?? "").trim()}__${String(row?.["下拉词"] ?? "").trim()}`;
+  const getDropdownRowKey = (row: any) =>
+    `${String(row?.["源关键词"] ?? "").trim()}__${String(row?.["原词"] ?? "").trim()}__${String(row?.["下拉词"] ?? "").trim()}`;
   const toggleSelectDropdownRow = (row: any) => {
     const key = getDropdownRowKey(row);
     if (!key || key === "__") return;
@@ -371,7 +433,11 @@ export default function IndustryKeyword() {
         toast.info("请先在下拉词内容表中选中要删除的关键词");
         return;
       }
-      const rows = targets.map((r: any) => ({ 原词: String(r?.["原词"] ?? ""), 下拉词: String(r?.["下拉词"] ?? "") }));
+      const rows = targets.map((r: any) => ({
+        源关键词: String(r?.["源关键词"] ?? ""),
+        原词: String(r?.["原词"] ?? ""),
+        下拉词: String(r?.["下拉词"] ?? ""),
+      }));
       const res = await dataApi.deleteIndustryKeywordDropdownRows(rows, dropdownOutputFile || undefined);
       const payload = res?.data ?? res;
       const data = payload?.data ?? payload;
@@ -389,6 +455,7 @@ export default function IndustryKeyword() {
     setTitleResultRows([]);
     setTitleResultFile("");
     setTitleSelectedKeywords([]);
+    setTitleSelectedSourcePools(activeSourcePools);
     setTitleRunMessage("");
     setTitleRunError("");
   };
@@ -397,6 +464,15 @@ export default function IndustryKeyword() {
     const v = String(kw || "").trim();
     if (!v) return;
     setTitleSelectedKeywords((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
+  };
+
+  const toggleTitleSourcePool = (source: string) => {
+    const value = String(source || "").trim();
+    if (!value) return;
+    setTitleSelectedSourcePools((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+    setTitleSelectedKeywords([]);
   };
 
   const stopTitlePoll = () => {
@@ -464,8 +540,17 @@ export default function IndustryKeyword() {
         toast.error("请先输入场景（每行一个）");
         return;
       }
+      if (titleSelectedSourcePools.length === 0) {
+        toast.error("请至少选择一个源关键词池");
+        return;
+      }
+      const minHeat = Number(titleMinKeywordHeat);
+      if (!Number.isFinite(minHeat) || minHeat < 0) {
+        toast.error("最低关键词热度必须是大于等于 0 的数字");
+        return;
+      }
       if (activeTitleKeywords.length === 0) {
-        toast.error(titleMode === "industry_hot" ? "整合后关键词为空，无法生成标题" : "下拉词为空，无法生成标题");
+        toast.error(`所选关键词池中没有热度大于等于 ${minHeat} 的关键词`);
         return;
       }
       const parsedCount = Number(titleCountPerScene);
@@ -486,6 +571,8 @@ export default function IndustryKeyword() {
         material: titleMaterial.trim() || undefined,
         titles_per_scene: parsedCount,
         keywords: keywordsToUse,
+        selected_source_pools: titleSelectedSourcePools,
+        min_keyword_heat: minHeat,
         output_file: outputFile || undefined,
         dropdown_output_file: dropdownOutputFile || undefined,
       });
@@ -759,7 +846,9 @@ export default function IndustryKeyword() {
                 <table className="w-full text-sm table-fixed">
                   <thead className="sticky top-0 bg-muted/80 backdrop-blur">
                     <tr className="border-b">
+                      <th className="text-left py-3 px-3 font-medium text-xs text-muted-foreground whitespace-nowrap min-w-[150px]">源关键词池</th>
                       <th className="text-left py-3 px-3 font-medium text-xs text-muted-foreground whitespace-nowrap min-w-[160px]">原词</th>
+                      <th className="text-left py-3 px-3 font-medium text-xs text-muted-foreground whitespace-nowrap w-[100px]">关键词热度</th>
                       <th className="text-left py-3 px-3 font-medium text-xs text-muted-foreground whitespace-nowrap min-w-[220px]">下拉词</th>
                     </tr>
                   </thead>
@@ -767,7 +856,7 @@ export default function IndustryKeyword() {
                     {filteredDropdownRows.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={2}
+                          colSpan={4}
                           className="py-6 text-center text-xs text-muted-foreground"
                         >
                           暂无下拉词结果（先执行“下载下拉词”）
@@ -784,9 +873,17 @@ export default function IndustryKeyword() {
                           onClick={() => toggleSelectDropdownRow(row)}
                         >
                           <td className="py-2.5 px-3 text-xs whitespace-nowrap">
+                            <div className="truncate" title={String(row?.["源关键词"] ?? "")}>
+                              {String(row?.["源关键词"] ?? "")}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-xs whitespace-nowrap">
                             <div className="truncate" title={String(row?.["原词"] ?? "")}>
                               {String(row?.["原词"] ?? "")}
                             </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-xs tabular-nums">
+                            {parseKeywordHeat(row?.["关键词热度"])}
                           </td>
                           <td className="py-2.5 px-3 text-xs whitespace-nowrap">
                             <div className="truncate" title={String(row?.["下拉词"] ?? "")}>
@@ -903,7 +1000,7 @@ export default function IndustryKeyword() {
                 下拉词生成
               </Button>
               <Badge variant="secondary">
-                已选 {titleSelectedKeywords.length} / {activeTitleKeywords.length}（不选则默认全量）
+                已选词池 {titleSelectedSourcePools.length} / {activeSourcePools.length}｜符合热度 {activeTitleKeywords.length} 个词
               </Badge>
             </div>
 
@@ -951,32 +1048,115 @@ export default function IndustryKeyword() {
               </div>
             </div>
 
+            <div className="rounded-md border border-border/50 p-3 space-y-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_220px] gap-4 items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs text-muted-foreground">源关键词池（可多选）</Label>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          setTitleSelectedSourcePools(activeSourcePools);
+                          setTitleSelectedKeywords([]);
+                        }}
+                      >
+                        全选
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          setTitleSelectedSourcePools([]);
+                          setTitleSelectedKeywords([]);
+                        }}
+                      >
+                        清空
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+                    {activeSourcePools.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">暂无源关键词池，请先重新下载并整合关键词</span>
+                    ) : (
+                      activeSourcePools.map((source) => {
+                        const selected = titleSelectedSourcePoolSet.has(source);
+                        return (
+                          <Button
+                            key={source}
+                            type="button"
+                            size="sm"
+                            variant={selected ? "default" : "outline"}
+                            className="h-7 text-xs"
+                            onClick={() => toggleTitleSourcePool(source)}
+                          >
+                            {source}
+                          </Button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">最低关键词热度（≥）</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={titleMinKeywordHeat}
+                    onChange={(e) => setTitleMinKeywordHeat(e.target.value)}
+                    className="text-xs"
+                  />
+                  <div className="text-[11px] text-muted-foreground">
+                    只把所选词池中达到该热度的关键词提交给大模型
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                当前筛选：{titleSelectedSourcePools.length} 个词池，符合条件 {activeTitleKeywords.length} 个关键词
+                {titleSelectedKeywords.length > 0 ? `，其中手工选中 ${titleSelectedKeywords.length} 个` : "，未手工选词时默认提交全部符合条件的关键词"}
+              </div>
+            </div>
+
             <div className="rounded-md border border-border/50">
               <div className="px-3 py-2 text-xs text-muted-foreground border-b">
-                {titleMode === "industry_hot" ? "行业热词关键词表（取整合后关键词列）" : "下拉词关键词表（取下拉词列）"}
+                {titleMode === "industry_hot" ? "行业热词关键词表（已按词池和热度筛选）" : "下拉词关键词表（已按词池和原词热度筛选）"}
               </div>
               <div className="max-h-56 overflow-auto">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-muted/80">
                     <tr className="border-b">
+                      <th className="text-left py-2 px-3 font-medium w-[240px]">源关键词池</th>
+                      <th className="text-left py-2 px-3 font-medium w-[110px]">热度</th>
                       <th className="text-left py-2 px-3 font-medium">关键词</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {activeTitleKeywords.length === 0 ? (
+                    {activeTitleKeywordDetails.length === 0 ? (
                       <tr>
-                        <td className="py-4 px-3 text-muted-foreground">暂无可用关键词</td>
+                        <td colSpan={3} className="py-4 px-3 text-muted-foreground">
+                          暂无符合所选词池和最低热度条件的关键词
+                        </td>
                       </tr>
                     ) : (
-                      activeTitleKeywords.map((kw) => {
-                        const selected = titleSelectedSet.has(kw);
+                      activeTitleKeywordDetails.map((detail) => {
+                        const selected = titleSelectedSet.has(detail.keyword);
                         return (
                         <tr
-                          key={kw}
+                          key={detail.keyword}
                           className={`border-b last:border-0 cursor-pointer ${selected ? "bg-emerald-100/70 hover:bg-emerald-100/90" : "hover:bg-accent/30"}`}
-                          onClick={() => toggleSelectTitleKeyword(kw)}
+                          onClick={() => toggleSelectTitleKeyword(detail.keyword)}
                         >
-                          <td className="py-1.5 px-3">{kw}</td>
+                          <td className="py-1.5 px-3">
+                            <div className="truncate" title={detail.sources.join("、")}>{detail.sources.join("、")}</div>
+                          </td>
+                          <td className="py-1.5 px-3 tabular-nums">{detail.heat}</td>
+                          <td className="py-1.5 px-3">{detail.keyword}</td>
                         </tr>
                       )})
                     )}
@@ -1030,4 +1210,3 @@ export default function IndustryKeyword() {
     </div>
   );
 }
-
