@@ -1122,8 +1122,11 @@ export const dataApi = {
   deleteIndustryKeywordRows: (keywords: string[], outputFile?: string) =>
     api.post("/data/industry-keyword/delete", { keywords, ...(outputFile ? { output_file: outputFile } : {}) }),
 
-  /** 删除行业关键词下拉词表中的行（原词+下拉词） */
-  deleteIndustryKeywordDropdownRows: (rows: Array<{ 原词: string; 下拉词: string }>, outputFile?: string) =>
+  /** 删除行业关键词下拉词表中的行（源关键词+原词+下拉词） */
+  deleteIndustryKeywordDropdownRows: (
+    rows: Array<{ 源关键词: string; 原词: string; 下拉词: string }>,
+    outputFile?: string
+  ) =>
     api.post("/data/industry-keyword/dropdown/delete", { rows, ...(outputFile ? { output_file: outputFile } : {}) }),
 
   /** 行业关键词/下拉词调用AI生成标题 */
@@ -1133,6 +1136,8 @@ export const dataApi = {
     material?: string;
     titles_per_scene: number;
     keywords?: string[];
+    selected_source_pools: string[];
+    min_keyword_heat: number;
     output_file?: string;
     dropdown_output_file?: string;
   }) => api.post("/data/industry-keyword/title/generate/start", params),
