@@ -7,7 +7,7 @@ import os
 import math
 import time
 import random
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -288,14 +288,11 @@ def set_ladder_price(
         logger.error("出厂价格读取失败")
         return False
 
-    # 2) 计算阶梯价（同向浮动 + 向上取整）
+    # 2) 计算阶梯价（根据配置决定向上取整或保留两位小数）
     ladder_config = _calculate_ladder_prices(ex_price, price_config)
     if not ladder_config:
-    logger.error(
-        "价格模板为空或不完整，请先填写汇率和至少一档阶梯价格"
-    )
-    return False
-
+        logger.error("价格模板为空或不完整，请先在配置管理中填写汇率和至少一档阶梯价格")
+        return False
     logger.info(f"出厂价: {ex_price}元, 阶梯价格: {ladder_config}")
 
     try:
@@ -373,19 +370,23 @@ def set_ladder_price(
             p_input = row.find_element(By.XPATH, ".//input[@role='input-price']")
             p_input.click()
             p_input.send_keys(Keys.CONTROL + "a")
-            p_input.send_keys(str(price))
+            price_text = (
+                str(int(price))
+                if price_config.round_price_to_integer
+                else f"{float(price):.2f}"
+            )
+            p_input.send_keys(price_text)
             driver.execute_script("arguments[0].blur();", p_input)
             time.sleep(0.3)
 
         logger.info("阶梯价格设置完成")
 
-        # 8) 填入可售数量
+        # 8) 填入可售数量；未配置时跳过
         inventory = getattr(price_config, "product_inventory", None)
         if inventory is not None:
             _fill_sku_inventory(driver, int(inventory))
         else:
             logger.info("未配置可售数量，跳过 SKU 库存填写")
-
 
         # 8b) 发货期（可售数量之后）
         if delivery_config is not None:
@@ -432,44 +433,38 @@ def _read_factory_price(main_dir: str) -> Optional[float]:
 def _calculate_ladder_prices(
     ex_price: float,
     config: PriceConfig,
-) -> List[Tuple[int, int]]:
-    """计算阶梯价格；空值或不完整档位不参与计算。"""
-    exchange_rate = float(
-        getattr(config, "exchange_rate", None) or 0
-    )
+) -> List[Tuple[int, Union[int, float]]]:
+    """计算阶梯价格；可选择向上取整或保留两位小数。"""
+    exchange_rate = float(getattr(config, "exchange_rate", None) or 0)
     if exchange_rate <= 0:
         return []
 
-    offset_ratio = (
-        random.random() if config.enable_random_float else 0.0
+    offset_ratio = random.random() if config.enable_random_float else 0.0
+    round_to_integer = bool(
+        getattr(config, "round_price_to_integer", True)
     )
-    orders = list(
-        getattr(config, "ladder_min_orders", None) or []
-    )
-    ranges = list(
-        getattr(config, "ladder_factor_ranges", None) or []
-    )
+    orders = list(getattr(config, "ladder_min_orders", None) or [])
+    ranges = list(getattr(config, "ladder_factor_ranges", None) or [])
 
-    ladder_config: List[Tuple[int, int]] = []
+    ladder_config: List[Tuple[int, Union[int, float]]] = []
     for i in range(min(len(orders), len(ranges))):
         row = ranges[i] or []
-        if (
-            orders[i] is None
-            or len(row) < 2
-            or row[0] is None
-            or row[1] is None
-        ):
+        if orders[i] is None or len(row) < 2 or row[0] is None or row[1] is None:
             continue
 
         min_order = int(orders[i])
         low = float(row[0])
         high = float(row[1])
         factor = low + offset_ratio * (high - low)
-        price = math.ceil(ex_price * factor / exchange_rate)
+        raw_price = ex_price * factor / exchange_rate
+        price: Union[int, float]
+        if round_to_integer:
+            price = math.ceil(raw_price)
+        else:
+            price = round(raw_price, 2)
         ladder_config.append((min_order, price))
 
     return ladder_config
-
 
 
 def _fill_sku_inventory(driver, inventory: int):
