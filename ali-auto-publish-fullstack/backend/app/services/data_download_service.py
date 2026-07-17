@@ -14,6 +14,7 @@ import os
 import re
 import json
 import time
+import hashlib
 import gc
 import pickle
 import base64
@@ -5128,6 +5129,9 @@ def _parse_scene_list(text: str) -> List[str]:
     return _normalize_keyword_list(parts)
 
 
+_TITLE_EXCEL_WRITE_LOCK = threading.RLock()
+
+
 def _append_scene_titles_to_title_excel(excel_path: str, rows: List[Dict]) -> Dict:
     """
     增量写入到标题Excel（paths.title_excel_path）的「产品标题」sheet。
@@ -5135,17 +5139,26 @@ def _append_scene_titles_to_title_excel(excel_path: str, rows: List[Dict]) -> Di
     """
     from openpyxl import Workbook, load_workbook
 
-    path = str(excel_path or "").strip()
+    path = str(excel_path or "").strip().strip('"')
     if not path:
         raise ValueError("未配置标题Excel路径（paths.title_excel_path）")
 
     if re.match(r"^[\\/]+[A-Za-z]:", path):
         path = re.sub(r"^[\\/]+", "", path)
-    path = os.path.normpath(path)
+    path = os.path.normpath(os.path.expanduser(os.path.expandvars(path)))
+    if os.name != "nt" and re.match(r"^[A-Za-z]:[\\/]", path):
+        raise ValueError(f"后端当前运行在非Windows环境，不能直接写入Windows路径：{path}")
+    if os.path.isdir(path):
+        raise ValueError(f"标题Excel路径指向了文件夹，请配置完整文件名（例如 标题.xlsx）：{path}")
 
     parent = os.path.dirname(path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
+    try:
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+    except PermissionError as e:
+        raise ValueError(f"无法创建标题Excel目录，请检查目录权限：{parent}") from e
+    except OSError as e:
+        raise ValueError(f"创建标题Excel目录失败：{parent}｜{e}") from e
 
     def _force_trim_title_max_128(title: str) -> str:
         """
@@ -5173,8 +5186,11 @@ def _append_scene_titles_to_title_excel(excel_path: str, rows: List[Dict]) -> Di
 
     wb = None
     created = False
+    temp_path = ""
+    file_existed_at_start = os.path.isfile(path)
+    _TITLE_EXCEL_WRITE_LOCK.acquire()
     try:
-        if os.path.exists(path):
+        if file_existed_at_start:
             wb = load_workbook(path)
         else:
             wb = Workbook()
@@ -5196,7 +5212,10 @@ def _append_scene_titles_to_title_excel(excel_path: str, rows: List[Dict]) -> Di
         title_col_name = "标题" if "标题" in header_map else ("标题打乱重组" if "标题打乱重组" in header_map else "")
 
         if not header_map:
-            ws.append(["场景", "标题"])
+            # openpyxl 新建工作表虽然内容为空，但 max_row 仍为1；使用 append 会把
+            # 表头写到第2行，导致下次打开时无法识别表头。必须直接写入首行。
+            ws.cell(row=1, column=1, value="场景")
+            ws.cell(row=1, column=2, value="标题")
             header_map = {"场景": 1, "标题": 2}
             scene_col_name = "场景"
             title_col_name = "标题"
@@ -5251,17 +5270,199 @@ def _append_scene_titles_to_title_excel(excel_path: str, rows: List[Dict]) -> Di
             except Exception:
                 pass
 
-        wb.save(path)
-        return {"file": path, "sheet": sheet_name, "added": added, "skipped": skipped}
+        # 先保存到同目录临时文件，再原子替换目标文件。目标不存在时等同于创建，
+        # 目标存在时等同于安全追加，避免直接保存失败后破坏原文件。
+        temp_dir = parent or os.getcwd()
+        fd, temp_path = tempfile.mkstemp(
+            prefix=f".{os.path.basename(path)}.",
+            suffix=".tmp.xlsx",
+            dir=temp_dir,
+        )
+        os.close(fd)
+        wb.save(temp_path)
+        wb.close()
+        wb = None
+
+        save_mode = "atomic_replace"
+        last_replace_error = None
+        for attempt in range(3):
+            try:
+                os.replace(temp_path, path)
+                temp_path = ""
+                break
+            except PermissionError as e:
+                last_replace_error = e
+                if attempt < 2:
+                    time.sleep(0.5 * (attempt + 1))
+
+        # Windows可能允许修改文件内容，但不允许删除/替换目录项。原子替换失败时，
+        # 自动回退为把已经生成好的完整工作簿直接写回目标文件，实现“存在则追加”。
+        direct_write_error = None
+        if temp_path:
+            save_mode = "direct_overwrite_fallback"
+            for attempt in range(3):
+                try:
+                    with open(temp_path, "rb") as src, open(path, "wb") as dst:
+                        shutil.copyfileobj(src, dst, length=1024 * 1024)
+                        dst.flush()
+                        os.fsync(dst.fileno())
+                    # 写回后立即校验文件仍是可读取的Excel工作簿。
+                    verify_wb = load_workbook(path, read_only=True)
+                    verify_wb.close()
+                    try:
+                        os.remove(temp_path)
+                    except Exception:
+                        pass
+                    temp_path = ""
+                    break
+                except (PermissionError, OSError) as e:
+                    direct_write_error = e
+                    if attempt < 2:
+                        time.sleep(0.5 * (attempt + 1))
+
+        if temp_path:
+            if file_existed_at_start:
+                raise ValueError(
+                    f"标题Excel已存在，但原子替换和直接追加写回均失败；请检查文件只读属性、目录权限或占用进程：{path}"
+                ) from (direct_write_error or last_replace_error)
+            raise ValueError(
+                f"标题Excel不存在，自动创建失败；请检查目标目录写入权限：{path}"
+            ) from (direct_write_error or last_replace_error)
+
+        return {
+            "file": path,
+            "sheet": sheet_name,
+            "added": added,
+            "skipped": skipped,
+            "created": created,
+            "save_mode": save_mode,
+        }
     except PermissionError as e:
-        raise ValueError(f"标题Excel文件被占用，请先关闭Excel后重试：{path}") from e
+        if file_existed_at_start:
+            raise ValueError(f"标题Excel已存在但无法读取或追加，请关闭Excel并检查文件权限：{path}") from e
+        raise ValueError(f"标题Excel不存在且创建失败，请检查目标目录权限：{path}") from e
+    except OSError as e:
+        raise ValueError(f"标题Excel保存失败：{path}｜{e}") from e
     finally:
         try:
             if wb:
                 wb.close()
         except Exception:
             pass
+        if temp_path:
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except Exception:
+                pass
+        _TITLE_EXCEL_WRITE_LOCK.release()
 
+
+
+_TITLE_PROGRESS_VERSION = 1
+_TITLE_PROGRESS_FILENAME = "industry_keyword_title_progress.json"
+
+
+def _get_industry_keyword_title_progress_file() -> str:
+    """返回固定的标题任务检查点文件路径，后端重启后仍可读取。"""
+    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    return os.path.join(backend_dir, "data", _TITLE_PROGRESS_FILENAME)
+
+
+def _load_industry_keyword_title_progress() -> Dict[str, Any]:
+    path = _get_industry_keyword_title_progress_file()
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception as e:
+        logger.warning(f"读取标题任务检查点失败: {e}")
+        return {}
+
+
+def _save_industry_keyword_title_progress(data: Dict[str, Any]) -> str:
+    """原子写入检查点，避免服务异常退出时留下半个JSON文件。"""
+    path = _get_industry_keyword_title_progress_file()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    payload = dict(data or {})
+    payload["version"] = _TITLE_PROGRESS_VERSION
+    payload["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    temp_path = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        with open(temp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+    return path
+
+
+def _build_industry_keyword_title_job_key(request_snapshot: Dict[str, Any], keyword_list: List[str]) -> str:
+    identity = {
+        "request": request_snapshot,
+        "keyword_list": keyword_list,
+    }
+    raw = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def get_industry_keyword_title_progress_summary() -> Dict[str, Any]:
+    checkpoint = _load_industry_keyword_title_progress()
+    if not checkpoint:
+        return {
+            "exists": False,
+            "can_resume": False,
+            "status": "idle",
+            "completed_scenes": 0,
+            "total_scenes": 0,
+            "generated_titles": 0,
+            "total_titles": 0,
+        }
+    completed_scenes = int(checkpoint.get("completed_count") or 0)
+    total_scenes = int(checkpoint.get("total_scenes") or 0)
+    generated_titles = int(checkpoint.get("generated_titles") or 0)
+    total_titles = int(checkpoint.get("total_titles") or 0)
+    excel_written_count = len(checkpoint.get("excel_written_scenes") or [])
+    status = str(checkpoint.get("status") or "idle")
+    can_resume = completed_scenes < total_scenes or excel_written_count < completed_scenes
+    return {
+        "exists": True,
+        "can_resume": can_resume,
+        "status": status,
+        "completed_scenes": completed_scenes,
+        "total_scenes": total_scenes,
+        "generated_titles": generated_titles,
+        "total_titles": total_titles,
+        "generation_batch_count": int(checkpoint.get("generation_batch_count") or 0),
+        "request_count": int(checkpoint.get("request_count") or 0),
+        "retry_count": int(checkpoint.get("retry_count") or 0),
+        "current_scene": str(checkpoint.get("current_scene") or ""),
+        "last_error": str(checkpoint.get("last_error") or ""),
+        "created_at": str(checkpoint.get("created_at") or ""),
+        "updated_at": str(checkpoint.get("updated_at") or ""),
+        "output_file": str(checkpoint.get("title_excel_path") or ""),
+    }
+
+
+def get_industry_keyword_title_resume_request() -> Dict[str, Any]:
+    checkpoint = _load_industry_keyword_title_progress()
+    request_snapshot = checkpoint.get("request") if isinstance(checkpoint, dict) else None
+    if not isinstance(request_snapshot, dict) or not request_snapshot:
+        raise ValueError("没有可恢复的标题生成任务")
+    summary = get_industry_keyword_title_progress_summary()
+    if not summary.get("can_resume"):
+        raise ValueError("上一次标题生成任务已全部完成，无需恢复")
+    payload = dict(request_snapshot)
+    payload["resume"] = True
+    return payload
 
 def generate_industry_keyword_titles(
     mode: str,
@@ -5273,6 +5474,7 @@ def generate_industry_keyword_titles(
     dropdown_output_file: Optional[str] = None,
     selected_source_pools: Optional[List[str]] = None,
     min_keyword_heat: float = 0,
+    resume: bool = False,
     task: Optional["TaskInfo"] = None,
 ) -> Dict:
     """
@@ -5351,151 +5553,415 @@ def generate_industry_keyword_titles(
     # 材质：一行一个，注入提示词时做去重合并
     material_items = _normalize_keyword_list(re.split(r"[\n\r]+", str(material or "")))
     material_text = ", ".join(material_items)
-    if normalized_mode == "dropdown":
-        prompt = (
-            "生成阿里国际站英文标题，执行以下铁律，违反一条都禁止输出：\n\n"
-            
-            "【1. 长度强制锁死】\n"
-            "字符数 = 包含空格\n"
-            "必须严格控制在 85 - 128 字符之间\n"
-            "如果标题字符超越128个，那么需要删除场景部分，删除场景部分还是超过128字符，就继续删除1个属性词\n"
-            "生成后必须自己检查长度，超长直接重写\n\n"
-            
-            "【2. 必须极度精简】\n"
-            "禁止任何多余单词\n"
-            "禁止长描述\n"
-            "禁止叠加修饰词\n"
-            "单词越少越好，越短越好\n\n"
-            
-            "【3. 开头固定】\n"
-            f"开头只能用1个：{', '.join(keyword_list)}\n"
-            "必须放在最前面\n\n"
-            
-            "【4. 结构固定】\n"
-            "下拉词 + 产品词 + 材质 + 1个属性词 + 场景\n\n"
-            
-            "【5. 材质】\n"
-            f"{material_text or '简单材质词'}\n\n"
-            
-            "【6. 属性词】\n"
-            "只能用1个，禁止多个\n\n"
-            
-            "【7. 场景】\n"
-            f"场景：{', '.join(scene_list)}，每个场景{count}条\n\n"
-            
-            "【8. 格式】\n"
-            "纯英文，无标点，空格分隔\n"
 
-            "================【输出格式】================\n"
-            "每行严格格式：\n"
-            "场景, 标题\n"
-            "禁止任何解释、序号或额外内容。\n"
+    def _build_title_prompt(target_scenes: List[str], target_count: int) -> str:
+        """为指定场景构建提示词，并明确要求每个场景的准确返回数量。"""
+        total_count = len(target_scenes) * target_count
+        scene_text = ", ".join(target_scenes)
+        scene_requirements = "\n".join(
+            f"- {scene}: 必须生成 {target_count} 条" for scene in target_scenes
+        )
+        exact_output_rule = (
+            "================【数量与场景强制规则】================\n"
+            f"本次必须恰好输出 {total_count} 行标题，不得少于或多于 {total_count} 行。\n"
+            "每个场景必须分别生成，禁止把两个或多个场景合并成一个场景。\n"
+            "输出第一列的场景名称必须与下面提供的场景文字完全一致：\n"
+            f"{scene_requirements}\n"
+            "生成完成后必须逐个场景核对数量，缺少任何一条都必须补齐后再输出。\n\n"
         )
 
-    else:
-        prompt = (
-            "你是阿里国际站B2B SEO标题生成专家，请在严格约束下生成英文产品标题。\n\n"
+        if normalized_mode == "dropdown":
+            return (
+                "生成阿里国际站英文标题，执行以下铁律，违反一条都禁止输出：\n\n"
+                + exact_output_rule
+                + "【1. 长度强制锁死】\n"
+                "字符数 = 包含空格\n"
+                "必须严格控制在 85 - 128 字符之间\n"
+                "如果标题字符超越128个，那么需要删除场景部分，删除场景部分还是超过128字符，就继续删除1个属性词\n"
+                "生成后必须自己检查长度，超长直接重写\n\n"
+                "【2. 必须极度精简】\n"
+                "禁止任何多余单词\n"
+                "禁止长描述\n"
+                "禁止叠加修饰词\n"
+                "单词越少越好，越短越好\n\n"
+                "【3. 开头固定】\n"
+                f"开头只能用1个：{', '.join(keyword_list)}\n"
+                "必须放在最前面\n\n"
+                "【4. 结构固定】\n"
+                "下拉词 + 产品词 + 材质 + 1个属性词 + 场景\n\n"
+                "【5. 材质】\n"
+                f"{material_text or '简单材质词'}\n\n"
+                "【6. 属性词】\n"
+                "只能用1个，禁止多个\n\n"
+                "【7. 场景】\n"
+                f"场景：{scene_text}，每个场景{target_count}条\n\n"
+                "【8. 格式】\n"
+                "标题部分纯英文，无标点，空格分隔\n"
+                "================【输出格式】================\n"
+                "每行严格格式：\n"
+                "场景, 标题\n"
+                "禁止任何解释、序号或额外内容。\n"
+            )
 
-            "================【最高优先级规则】================\n"
+        return (
+            "你是阿里国际站B2B SEO标题生成专家，请在严格约束下生成英文产品标题。\n\n"
+            + exact_output_rule
+            + "================【最高优先级规则】================\n"
             "标题总长度必须在85到128字符之间（包含空格）。\n"
             "如果出现冲突，必须优先减少关键词数量以满足长度要求。\n"
             "超过128字符的标题绝对禁止输出。\n"
             "生成后必须自行检查长度，不合规必须自动修改。\n\n"
-
             "================【关键词规则】================\n"
             f"只能使用以下关键词库中的词：{', '.join(keyword_list)}\n"
             "每个标题必须使用4到6个关键词（禁止超过6个）。\n"
             "关键词不能重复。\n"
             "优先选择较短关键词，避免接近长度上限。\n\n"
-
             "================【材质规则】================\n"
             f"材质：{material_text or '未指定则选择合理材质'}\n"
             "材质必须自然出现在标题中。\n\n"
-
             "================【结构规则】================\n"
             "标题结构必须符合：\n"
             "核心产品词 + 关键属性词 + 材质 + 变体词 + 使用场景\n\n"
-
             "================【风格规则】================\n"
-            "仅输出英文。\n"
-            "禁止任何标点符号或特殊字符。\n"
-            "只能使用空格分隔。\n"
+            "标题部分仅输出英文。\n"
+            "标题部分禁止任何标点符号或特殊字符。\n"
+            "标题部分只能使用空格分隔。\n"
             "符合B2B外贸SEO风格，表达专业自然。\n"
             "避免关键词堆砌。\n\n"
-
-
             "================【使用场景】================\n"
-            f"{', '.join(scene_list)}\n\n"
-
-            f"每个场景生成 {count} 条标题。\n\n"
-
+            f"{scene_text}\n\n"
+            f"每个场景生成 {target_count} 条标题。\n\n"
             "================【输出格式】================\n"
             "每行严格格式：\n"
             "场景, 标题\n"
             "禁止任何解释、序号或额外内容。\n"
         )
 
-    payload = {
-        "model": model_name or "doubao-seed-2-0-pro-260215",
-        "temperature": 0.3,
-        "top_p": 0.9,
-        "input": [
-            {
-                "role": "user",
-                "content": [{"type": "input_text", "text": prompt}],
-            }
-        ],
+    def _request_title_content(request_prompt: str) -> str:
+        payload = {
+            "model": model_name or "doubao-seed-2-0-pro-260215",
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "input": [
+                {
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": request_prompt}],
+                }
+            ],
+        }
+        max_attempts = 4  # 首次请求 + 最多3次自动重试
+
+        def _interruptible_sleep(seconds: float, reason: str) -> None:
+            wait_seconds = max(0.0, float(seconds))
+            if task:
+                task.current_step = f"{reason}，{int(wait_seconds)}秒后自动重试"
+            deadline = time.time() + wait_seconds
+            while time.time() < deadline:
+                if task and task.should_stop():
+                    raise RuntimeError("标题生成任务已停止")
+                time.sleep(min(0.5, max(0.0, deadline - time.time())))
+
+        last_error: Optional[Exception] = None
+        for attempt in range(1, max_attempts + 1):
+            if task and task.should_stop():
+                raise RuntimeError("标题生成任务已停止")
+            try:
+                resp = requests.post(
+                    ARK_API_BASE_URL + ARK_API_ENDPOINT,
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json=payload,
+                    timeout=300,
+                )
+
+                if resp.status_code == 429:
+                    last_error = requests.HTTPError("豆包接口触发429限流", response=resp)
+                    if attempt < max_attempts:
+                        _interruptible_sleep(60, f"接口限流（重试 {attempt}/3）")
+                        continue
+                    resp.raise_for_status()
+
+                if 500 <= resp.status_code <= 599:
+                    last_error = requests.HTTPError(f"豆包服务端错误 {resp.status_code}", response=resp)
+                    if attempt < max_attempts:
+                        _interruptible_sleep(10 * (2 ** (attempt - 1)), f"服务端错误 {resp.status_code}（重试 {attempt}/3）")
+                        continue
+                    resp.raise_for_status()
+
+                # 4xx参数或鉴权错误不会因重试恢复，直接抛出。
+                resp.raise_for_status()
+                result_text = _extract_ai_response_text(resp.json()).strip()
+                if not result_text:
+                    raise ValueError("AI未返回有效标题结果")
+                return result_text
+            except (requests.Timeout, requests.ConnectionError) as e:
+                last_error = e
+                if attempt >= max_attempts:
+                    break
+                _interruptible_sleep(2 ** (attempt - 1), f"网络异常（重试 {attempt}/3）")
+            except requests.RequestException:
+                # 429/5xx已在上面分类处理；其他HTTP错误直接终止。
+                raise
+
+        raise RuntimeError(f"豆包接口请求连续失败，已自动重试3次：{last_error}") from last_error
+
+    def _parse_title_rows(
+        raw_content: str,
+        expected_scenes: List[str],
+        fallback_scene: Optional[str] = None,
+    ) -> List[Dict]:
+        """解析模型输出；主请求要求场景精确匹配，单场景补充请求可强制归入目标场景。"""
+        scene_lookup = {scene.casefold(): scene for scene in expected_scenes}
+        result_rows: List[Dict] = []
+        for ln in str(raw_content or "").splitlines():
+            line = str(ln or "").strip()
+            if not line:
+                continue
+            line = re.sub(r"^\s*(?:[-*]\s*|\d+[.、)]\s*)", "", line)
+            if "，" in line:
+                returned_scene, title = line.split("，", 1)
+            elif "," in line:
+                returned_scene, title = line.split(",", 1)
+            else:
+                continue
+            returned_scene = returned_scene.strip().strip("`*# ")
+            title = title.strip().strip("`*# ")
+            matched_scene = scene_lookup.get(returned_scene.casefold())
+            if not matched_scene and fallback_scene and len(expected_scenes) == 1:
+                matched_scene = fallback_scene
+            if matched_scene and title:
+                result_rows.append({"scene": matched_scene, "title": title})
+        return result_rows
+
+    if task:
+        task.current_step = "准备标题生成检查点"
+
+    max_titles_per_batch = 20
+    scenes_per_batch = max(1, max_titles_per_batch // count)
+    estimated_batch_count = (len(scene_list) + scenes_per_batch - 1) // scenes_per_batch
+    title_excel_path = str(getattr(cfg.paths, "title_excel_path", "") or "").strip()
+    request_snapshot = {
+        "mode": normalized_mode,
+        "scenes": "\n".join(scene_list),
+        "material": str(material or "").strip(),
+        "titles_per_scene": count,
+        "keywords": _normalize_keyword_list(keywords or []),
+        "selected_source_pools": selected_pools,
+        "min_keyword_heat": min_heat,
+        "output_file": str(output_file or "").strip() or None,
+        "dropdown_output_file": str(dropdown_output_file or "").strip() or None,
+    }
+    job_key = _build_industry_keyword_title_job_key(request_snapshot, keyword_list)
+    previous = _load_industry_keyword_title_progress() if resume else {}
+    resume_matched = bool(previous and previous.get("job_key") == job_key)
+
+    rows_by_scene: Dict[str, List[str]] = {scene: [] for scene in scene_list}
+    seen_by_scene: Dict[str, set] = {scene: set() for scene in scene_list}
+    excel_written_scenes = set()
+    excel_added = 0
+    excel_skipped = 0
+    request_count = 0
+    retry_count = 0
+
+    if resume_matched:
+        previous_rows = previous.get("rows_by_scene") or {}
+        for scene in scene_list:
+            for title in previous_rows.get(scene, []) if isinstance(previous_rows, dict) else []:
+                normalized_title = str(title or "").strip()
+                key = normalized_title.casefold()
+                if normalized_title and key not in seen_by_scene[scene] and len(rows_by_scene[scene]) < count:
+                    seen_by_scene[scene].add(key)
+                    rows_by_scene[scene].append(normalized_title)
+        excel_written_scenes = {
+            str(scene) for scene in (previous.get("excel_written_scenes") or []) if str(scene) in rows_by_scene
+        }
+        previous_excel = previous.get("title_excel_write") or {}
+        excel_added = int(previous_excel.get("added") or 0)
+        excel_skipped = int(previous_excel.get("skipped") or 0)
+        request_count = int(previous.get("request_count") or 0)
+        retry_count = int(previous.get("retry_count") or 0)
+
+    completed_scene_names = [scene for scene in scene_list if len(rows_by_scene[scene]) >= count]
+    created_at = str(previous.get("created_at") or "") if resume_matched else ""
+    checkpoint: Dict[str, Any] = {
+        "task_id": "ai_industry_keyword_title",
+        "job_key": job_key,
+        "created_at": created_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "status": "running",
+        "mode": normalized_mode,
+        "request": request_snapshot,
+        "scenes": scene_list,
+        "titles_per_scene": count,
+        "keyword_list": keyword_list,
+        "keyword_count": len(keyword_list),
+        "filtered_keyword_rows": filtered_rows,
+        "material_text": material_text,
+        "rows_by_scene": rows_by_scene,
+        "completed_scenes": completed_scene_names,
+        "pending_scenes": [scene for scene in scene_list if scene not in completed_scene_names],
+        "excel_written_scenes": [scene for scene in scene_list if scene in excel_written_scenes],
+        "total_scenes": len(scene_list),
+        "completed_count": len(completed_scene_names),
+        "total_titles": len(scene_list) * count,
+        "generated_titles": sum(len(rows_by_scene[scene]) for scene in scene_list),
+        "generation_batch_count": estimated_batch_count,
+        "request_count": request_count,
+        "retry_count": retry_count,
+        "current_scene": "",
+        "title_excel_path": title_excel_path,
+        "title_excel_write": {
+            "file": title_excel_path,
+            "sheet": "产品标题",
+            "added": excel_added,
+            "skipped": excel_skipped,
+            "error": "",
+        },
+        "last_error": "",
     }
 
-    if task:
-        task.current_step = "调用AI生成标题"
-    resp = requests.post(
-        ARK_API_BASE_URL + ARK_API_ENDPOINT,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json=payload,
-        timeout=300,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    content = _extract_ai_response_text(data).strip()
-    if not content:
-        raise ValueError("AI未返回有效标题结果")
+    def _sync_checkpoint(status: str = "running", current_scene: str = "", last_error: str = "") -> None:
+        completed = [scene for scene in scene_list if len(rows_by_scene[scene]) >= count]
+        checkpoint.update({
+            "status": status,
+            "rows_by_scene": rows_by_scene,
+            "completed_scenes": completed,
+            "pending_scenes": [scene for scene in scene_list if scene not in completed],
+            "excel_written_scenes": [scene for scene in scene_list if scene in excel_written_scenes],
+            "completed_count": len(completed),
+            "generated_titles": sum(len(rows_by_scene[scene]) for scene in scene_list),
+            "request_count": request_count,
+            "retry_count": retry_count,
+            "current_scene": current_scene,
+            "last_error": last_error,
+            "title_excel_write": {
+                "file": title_excel_path,
+                "sheet": "产品标题",
+                "added": excel_added,
+                "skipped": excel_skipped,
+                "error": last_error if last_error and "Excel" in last_error else "",
+            },
+        })
+        _save_industry_keyword_title_progress(checkpoint)
+        if task:
+            task.progress = len(completed)
+            task.total = len(scene_list)
+            task.current_step = (
+                f"已完成 {len(completed)}/{len(scene_list)} 个场景，"
+                f"已生成 {checkpoint['generated_titles']}/{checkpoint['total_titles']} 条标题"
+            )
 
-    if task:
-        task.current_step = "解析生成结果"
-    parsed_rows: List[Dict] = []
-    for ln in content.splitlines():
-        line = str(ln or "").strip()
-        if not line:
+    def _add_rows(candidate_rows: List[Dict]) -> int:
+        added = 0
+        for row in candidate_rows:
+            scene = str(row.get("scene") or "").strip()
+            title = str(row.get("title") or "").strip()
+            if scene not in rows_by_scene or not title:
+                continue
+            title_key = title.casefold()
+            if title_key in seen_by_scene[scene] or len(rows_by_scene[scene]) >= count:
+                continue
+            seen_by_scene[scene].add(title_key)
+            rows_by_scene[scene].append(title)
+            added += 1
+        return added
+
+    def _write_completed_scene(scene: str) -> None:
+        nonlocal excel_added, excel_skipped
+        if scene in excel_written_scenes or len(rows_by_scene[scene]) < count:
+            return
+        scene_rows = [{"scene": scene, "title": title} for title in rows_by_scene[scene][:count]]
+        write_result = _append_scene_titles_to_title_excel(title_excel_path, scene_rows)
+        excel_added += int(write_result.get("added") or 0)
+        excel_skipped += int(write_result.get("skipped") or 0)
+        excel_written_scenes.add(scene)
+
+    _sync_checkpoint(current_scene="恢复检查点" if resume_matched else "初始化")
+
+    # 检查点可能已保存标题但上次写Excel失败；恢复时优先补写，不调用模型。
+    for scene in completed_scene_names:
+        if scene in excel_written_scenes:
             continue
-        if "，" in line:
-            scene, title = line.split("，", 1)
-        elif "," in line:
-            scene, title = line.split(",", 1)
-        else:
-            continue
-        scene = scene.strip()
-        title = title.strip()
-        if scene and title:
-            parsed_rows.append({"scene": scene, "title": title})
+        try:
+            _write_completed_scene(scene)
+            _sync_checkpoint(current_scene=scene)
+        except Exception as e:
+            _sync_checkpoint(current_scene=scene, last_error=f"Excel写入失败：{e}")
 
-    # 需求：不再落地 txt 结果文件，仅返回结果并写入标题Excel
-    output_path = ""
+    pending_scenes = [scene for scene in scene_list if len(rows_by_scene[scene]) < count]
+    scene_batches = [
+        pending_scenes[i:i + scenes_per_batch]
+        for i in range(0, len(pending_scenes), scenes_per_batch)
+    ]
 
-    # 增量写入到配置的标题Excel路径（产品标题sheet）
-    if task:
-        task.current_step = "写入标题Excel"
-    excel_write = None
-    try:
-        excel_write = _append_scene_titles_to_title_excel(getattr(cfg.paths, "title_excel_path", ""), parsed_rows)
-    except Exception as e:
-        # 写入失败不影响生成内容返回，但要把错误透出给前端提示
-        excel_write = {"error": str(e), "file": str(getattr(cfg.paths, "title_excel_path", "") or "").strip(), "sheet": "产品标题", "added": 0, "skipped": 0}
+    for batch_index, batch_scenes in enumerate(scene_batches, start=1):
+        if task and task.should_stop():
+            _sync_checkpoint(status="stopped", current_scene=batch_scenes[0] if batch_scenes else "")
+            raise RuntimeError("标题生成任务已停止")
+        if task:
+            task.current_step = (
+                f"生成标题批次 {batch_index}/{len(scene_batches)}"
+                f"（{len(batch_scenes)}个场景）"
+            )
+        batch_content = _request_title_content(_build_title_prompt(batch_scenes, count))
+        request_count += 1
+        _add_rows(_parse_title_rows(batch_content, batch_scenes))
+
+        # 每个场景在本批次内补足后立即写Excel并持久化，不等待其他场景完成。
+        for scene in batch_scenes:
+            attempts = 0
+            while len(rows_by_scene[scene]) < count and attempts < 3:
+                if task and task.should_stop():
+                    _sync_checkpoint(status="stopped", current_scene=scene)
+                    raise RuntimeError("标题生成任务已停止")
+                attempts += 1
+                missing_count = count - len(rows_by_scene[scene])
+                if task:
+                    task.current_step = f"补充生成场景：{scene}（缺少{missing_count}条）"
+                retry_prompt = _build_title_prompt([scene], missing_count)
+                if rows_by_scene[scene]:
+                    retry_prompt += (
+                        "\n以下标题已经生成，禁止重复：\n"
+                        + "\n".join(rows_by_scene[scene])
+                        + "\n"
+                    )
+                retry_content = _request_title_content(retry_prompt)
+                request_count += 1
+                retry_count += 1
+                retry_rows = _parse_title_rows(retry_content, [scene], fallback_scene=scene)
+                _add_rows(retry_rows)
+                _sync_checkpoint(current_scene=scene)
+
+            if len(rows_by_scene[scene]) < count:
+                missing_count = count - len(rows_by_scene[scene])
+                error_message = f"AI返回标题数量不足：场景“{scene}”仍缺少 {missing_count} 条，请恢复任务继续生成"
+                _sync_checkpoint(status="failed", current_scene=scene, last_error=error_message)
+                raise ValueError(error_message)
+
+            excel_error = ""
+            try:
+                _write_completed_scene(scene)
+            except Exception as e:
+                excel_error = f"Excel写入失败：{e}"
+            _sync_checkpoint(current_scene=scene, last_error=excel_error)
+
+    parsed_rows: List[Dict] = [
+        {"scene": scene, "title": title}
+        for scene in scene_list
+        for title in rows_by_scene[scene][:count]
+    ]
+    content = "\n".join(f"{row['scene']}, {row['title']}" for row in parsed_rows)
+    unwritten_scenes = [scene for scene in scene_list if scene not in excel_written_scenes]
+    final_status = "completed_with_errors" if unwritten_scenes else "completed"
+    final_error = ""
+    if unwritten_scenes:
+        final_error = f"有 {len(unwritten_scenes)} 个场景尚未写入Excel，可使用断点恢复重试写入"
+    _sync_checkpoint(status=final_status, last_error=final_error)
 
     return {
         "mode": normalized_mode,
         "scene_count": len(scene_list),
         "titles_per_scene": count,
+        "expected_title_count": len(scene_list) * count,
+        "generation_batch_count": estimated_batch_count,
         "keyword_count": len(keyword_list),
         "keywords": keyword_list,
         "selected_source_pools": selected_pools,
@@ -5503,18 +5969,15 @@ def generate_industry_keyword_titles(
         "filtered_keyword_rows": filtered_rows,
         "content": content,
         "rows": parsed_rows,
-        "output_file": output_path,
-        "title_excel_write": excel_write,
+        "output_file": "",
+        "resumed": resume_matched,
+        "progress_file": _get_industry_keyword_title_progress_file(),
+        "title_excel_write": checkpoint.get("title_excel_write") or {},
     }
 
 
 def run_industry_keyword_title_task(task: "TaskInfo", req: Dict[str, Any]):
-    """
-    异步任务入口：生成标题（行业热词/下拉词）。
-    结果写入 task.result，并落盘到“标题生成_最新结果.json”。
-    """
-    from app.core.settings import get_config
-    cfg = get_config()
+    """异步任务入口：支持持久化检查点、断点恢复和增量结果读取。"""
     task.current_step = "初始化"
     if task.should_stop():
         return
@@ -5532,27 +5995,115 @@ def run_industry_keyword_title_task(task: "TaskInfo", req: Dict[str, Any]):
     min_keyword_heat = (req or {}).get("min_keyword_heat") or 0
     output_file = (req or {}).get("output_file")
     dropdown_output_file = (req or {}).get("dropdown_output_file")
+    resume = bool((req or {}).get("resume", False))
 
-    result = generate_industry_keyword_titles(
-        mode=mode,
-        scenes=scenes,
-        material=material or None,
-        titles_per_scene=titles_per_scene,
-        keywords=[str(x) for x in keywords],
-        output_file=str(output_file).strip() if output_file else None,
-        dropdown_output_file=str(dropdown_output_file).strip() if dropdown_output_file else None,
-        selected_source_pools=[str(x) for x in selected_source_pools],
-        min_keyword_heat=float(min_keyword_heat or 0),
-        task=task,
-    )
-    task.result = result
-    task.current_step = "完成"
+    try:
+        result = generate_industry_keyword_titles(
+            mode=mode,
+            scenes=scenes,
+            material=material or None,
+            titles_per_scene=titles_per_scene,
+            keywords=[str(x) for x in keywords],
+            output_file=str(output_file).strip() if output_file else None,
+            dropdown_output_file=str(dropdown_output_file).strip() if dropdown_output_file else None,
+            selected_source_pools=[str(x) for x in selected_source_pools],
+            min_keyword_heat=float(min_keyword_heat or 0),
+            resume=resume,
+            task=task,
+        )
+
+        # 完成前最终对账：正常情况下逐场景写入已覆盖全部结果；如果统计异常为0或
+        # 中途曾写入失败，则用完整结果再执行一次幂等补写，确保“任务完成”不等于“只生成未保存”。
+        result_rows = result.get("rows") or []
+        write_info = result.get("title_excel_write") or {}
+        accounted = int(write_info.get("added") or 0) + int(write_info.get("skipped") or 0)
+        if result_rows and accounted < len(result_rows):
+            task.current_step = "校验并补写标题Excel"
+            cfg = get_config()
+            try:
+                reconciled = _append_scene_titles_to_title_excel(
+                    getattr(cfg.paths, "title_excel_path", ""),
+                    result_rows,
+                )
+                result["title_excel_write"] = reconciled
+                checkpoint = _load_industry_keyword_title_progress()
+                if checkpoint:
+                    checkpoint["title_excel_write"] = reconciled
+                    if int(reconciled.get("added") or 0) + int(reconciled.get("skipped") or 0) >= len(result_rows):
+                        checkpoint["excel_written_scenes"] = list(checkpoint.get("scenes") or [])
+                        checkpoint["status"] = "completed"
+                        checkpoint["last_error"] = ""
+                    _save_industry_keyword_title_progress(checkpoint)
+            except Exception as write_error:
+                write_info = {
+                    "error": str(write_error),
+                    "file": str(getattr(cfg.paths, "title_excel_path", "") or "").strip(),
+                    "sheet": "产品标题",
+                    "added": 0,
+                    "skipped": 0,
+                }
+                result["title_excel_write"] = write_info
+                checkpoint = _load_industry_keyword_title_progress()
+                if checkpoint:
+                    checkpoint["status"] = "completed_with_errors"
+                    checkpoint["last_error"] = f"Excel写入失败：{write_error}"
+                    checkpoint["title_excel_write"] = write_info
+                    _save_industry_keyword_title_progress(checkpoint)
+
+        task.result = result
+        task.current_step = "完成"
+    except Exception as e:
+        checkpoint = _load_industry_keyword_title_progress()
+        if checkpoint:
+            checkpoint["status"] = "stopped" if task.should_stop() else "failed"
+            checkpoint["last_error"] = str(e)
+            _save_industry_keyword_title_progress(checkpoint)
+        raise
 
 
-def get_industry_keyword_title_generate_result() -> Dict:
-    """读取最近一次标题生成任务结果（用于前端轮询结束后拉取）。"""
-    # 不再落地结果文件；结果仅保存在任务内存中（路由层优先读取task.result）
-    return {"generated_at": "", "result": None, "file": ""}
+def get_industry_keyword_title_generate_result(page: Optional[int] = None, page_size: Optional[int] = None) -> Dict:
+    """从持久化检查点读取最近结果；传入分页参数时只返回当前页。"""
+    checkpoint = _load_industry_keyword_title_progress()
+    if not checkpoint:
+        return {"generated_at": "", "result": None, "file": ""}
+
+    scenes = checkpoint.get("scenes") or []
+    rows_by_scene = checkpoint.get("rows_by_scene") or {}
+    rows = [
+        {"scene": str(scene), "title": str(title)}
+        for scene in scenes
+        for title in (rows_by_scene.get(scene, []) if isinstance(rows_by_scene, dict) else [])
+    ]
+    total = len(rows)
+    current_page_size = max(1, min(200, int(page_size or max(total, 1))))
+    total_pages = max(1, (total + current_page_size - 1) // current_page_size)
+    current_page = min(max(1, int(page or 1)), total_pages)
+    start = (current_page - 1) * current_page_size
+    paged_rows = rows[start:start + current_page_size]
+    result = {
+        "mode": checkpoint.get("mode"),
+        "scene_count": int(checkpoint.get("total_scenes") or 0),
+        "titles_per_scene": int(checkpoint.get("titles_per_scene") or 0),
+        "expected_title_count": int(checkpoint.get("total_titles") or 0),
+        "generation_batch_count": int(checkpoint.get("generation_batch_count") or 0),
+        "keyword_count": int(checkpoint.get("keyword_count") or 0),
+        "content": "" if page is not None else "\n".join(f"{row['scene']}, {row['title']}" for row in rows),
+        "rows": paged_rows if page is not None else rows,
+        "output_file": "",
+        "title_excel_write": checkpoint.get("title_excel_write") or {},
+        "progress": get_industry_keyword_title_progress_summary(),
+        "pagination": {
+            "page": current_page,
+            "page_size": current_page_size,
+            "total": total,
+            "total_pages": total_pages,
+        },
+    }
+    return {
+        "generated_at": str(checkpoint.get("updated_at") or ""),
+        "result": result,
+        "file": _get_industry_keyword_title_progress_file(),
+    }
 
 
 def get_industry_keyword_dropdown_latest(output_file: Optional[str] = None) -> Dict:
