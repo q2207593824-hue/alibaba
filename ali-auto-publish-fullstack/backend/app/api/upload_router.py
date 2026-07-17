@@ -189,3 +189,69 @@ async def get_optimize_upload_status():
     if task:
         return {"success": True, "data": task.to_dict()}
     return {"success": True, "data": {"status": "idle"}}
+
+@router.get("/scenes/primary-subdirs")
+async def get_primary_subdirs():
+    """
+    返回 AI 批量生图原图根目录（ai_image_gen.input_root_dir）下的所有一级子目录名称列表。
+    """
+    import os
+    try:
+        from app.core.settings import get_config
+        cfg = get_config()
+        input_dir = str(getattr(cfg.ai_image_gen, "input_root_dir", "") or "").strip()
+        if not input_dir or not os.path.isdir(input_dir):
+            return {"success": True, "data": {"subdirs": [], "dir": input_dir,
+                                               "message": "原图目录不存在或未配置（ai_image_gen.input_root_dir）"}}
+        subdirs = sorted([
+            d for d in os.listdir(input_dir)
+            if os.path.isdir(os.path.join(input_dir, d))
+        ])
+        return {"success": True, "data": {"subdirs": subdirs, "dir": input_dir}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ExtractScenesRequest(BaseModel):
+    subdirs: list  # 选中的一级子目录名称列表
+
+
+@router.post("/scenes/from-subdirs")
+async def get_scenes_from_subdirs(req: ExtractScenesRequest):
+    """
+    接收前端选中的一级子目录列表，递归扫描其中所有图片，
+    按命名规范「自由名-场景-价格.jpg」解析第2段为场景，返回去重后的场景列表。
+    """
+    import os
+    try:
+        from app.core.settings import get_config
+        cfg = get_config()
+        input_dir = str(getattr(cfg.ai_image_gen, "input_root_dir", "") or "").strip()
+        if not input_dir or not os.path.isdir(input_dir):
+            return {"success": True, "data": {"scenes": [], "scene_counts": {},
+                                               "message": "原图目录不存在或未配置（ai_image_gen.input_root_dir）"}}
+        selected = [str(d).strip() for d in (req.subdirs or []) if str(d).strip()]
+        if not selected:
+            return {"success": True, "data": {"scenes": [], "scene_counts": {}}}
+        seen: dict = {}  # scene -> count
+        img_exts = (".jpg", ".jpeg", ".png", ".webp")
+        for subdir_name in selected:
+            subdir_path = os.path.join(input_dir, subdir_name)
+            if not os.path.isdir(subdir_path):
+                continue
+            # 递归遍历子目录下所有文件
+            for root, _dirs, files in os.walk(subdir_path):
+                for fname in files:
+                    if not fname.lower().endswith(img_exts):
+                        continue
+                    # 命名规范：自由名-场景-价格.jpg，取第2段（index=1）为场景
+                    base = os.path.splitext(fname)[0]
+                    parts = base.split('-')
+                    if len(parts) >= 2:
+                        scene = parts[1].strip()
+                        if scene:
+                            seen[scene] = seen.get(scene, 0) + 1
+        scenes = sorted(seen.keys())
+        return {"success": True, "data": {"scenes": scenes, "scene_counts": seen}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
