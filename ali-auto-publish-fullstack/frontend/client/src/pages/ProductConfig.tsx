@@ -22,7 +22,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { toast } from "sonner";
 import { configApi, subscribeConfigUpdates } from "@/lib/api";
 import {
-  DEFAULT_PRICE_UNIT,
   isValidPriceUnit,
   PriceUnitSelect,
 } from "@/components/PriceUnitSelect";
@@ -126,11 +125,7 @@ const resolveEnableSaleAttribute = (spec: any, name: string) => {
   return inferLegacyEnableSaleAttribute(spec, name);
 };
 
-const DEFAULT_DELIVERY_TIERS = [
-  { max_order: 10, delivery_days: 7 },
-  { max_order: 50, delivery_days: 15 },
-  { max_order: 0, delivery_days: 30 },
-];
+const DEFAULT_DELIVERY_TIERS: Array<{ max_order: number; delivery_days: number }> = [];
 
 const deliveryTiersToDrafts = (tiers: Array<{ max_order?: number; delivery_days?: number }>) =>
   tiers.map((t) => ({
@@ -226,7 +221,7 @@ export default function ProductConfig() {
 
   const syncPriceDeliveryDrafts = (root: Record<string, any>) => {
     const saved = String(root?.price?.price_unit ?? "").trim();
-    setPriceUnitDraft(isValidPriceUnit(saved) ? saved : DEFAULT_PRICE_UNIT);
+    setPriceUnitDraft(isValidPriceUnit(saved) ? saved : "");
     const tiers = root?.delivery?.ladder_delivery?.length
       ? root.delivery.ladder_delivery
       : DEFAULT_DELIVERY_TIERS;
@@ -238,7 +233,7 @@ export default function ProductConfig() {
     const next = { ...root };
     next.price = {
       ...(next.price || {}),
-      price_unit: isValidPriceUnit(unit) ? unit : DEFAULT_PRICE_UNIT,
+      price_unit: isValidPriceUnit(unit) ? unit : "",
     };
     next.delivery = {
       ...(next.delivery || {}),
@@ -746,10 +741,10 @@ export default function ProductConfig() {
   };
 
   // 价格阶梯
-  const priceTiers = config?.price?.ladder_min_orders?.map((qty: number, i: number) => ({
+  const priceTiers = config?.price?.ladder_min_orders?.map((qty: number | null, i: number) => ({
     minQty: qty,
-    factorLow: config?.price?.ladder_factor_ranges?.[i]?.[0] ?? 1.0,
-    factorHigh: config?.price?.ladder_factor_ranges?.[i]?.[1] ?? 1.5,
+    factorLow: config?.price?.ladder_factor_ranges?.[i]?.[0] ?? "",
+    factorHigh: config?.price?.ladder_factor_ranges?.[i]?.[1] ?? "",
   })) || [];
 
   // 属性映射
@@ -1214,13 +1209,16 @@ export default function ProductConfig() {
                   <Input
                     type="number"
                     step="0.01"
-                    value={config?.price?.exchange_rate || 7.2}
-                    onChange={(e) => updateConfig("price.exchange_rate", parseFloat(e.target.value) || 7.2)}
+                    value={config?.price?.exchange_rate ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      updateConfig("price.exchange_rate", raw === "" ? null : parseFloat(raw));
+                    }}
                     className="text-sm"
                   />
                   <Label className="text-sm text-right text-muted-foreground">随机浮动</Label>
                   <Switch
-                    checked={config?.price?.enable_random_float ?? true}
+                    checked={config?.price?.enable_random_float ?? false}
                     onCheckedChange={(v) => updateConfig("price.enable_random_float", v)}
                   />
                 </div>
@@ -1236,26 +1234,28 @@ export default function ProductConfig() {
                     <div key={i} className="grid grid-cols-4 gap-4 items-center">
                       <Input
                         type="number"
-                        value={tier.minQty}
+                        value={tier.minQty ?? ""}
                         className="text-sm"
                         onChange={(e) => {
                           const orders = [...(config?.price?.ladder_min_orders || [])];
                           const val = e.target.value;
-                          orders[i] = val === "" ? "" : Math.max(parseInt(val) || 0, 0);
+                          orders[i] = val === "" ? null : Math.max(parseInt(val, 10) || 0, 0);
                           updateConfig("price.ladder_min_orders", orders);
                         }}
                       />
-                      <Input type="number" step="0.1" value={tier.factorLow} className="text-sm"
+                      <Input type="number" step="0.1" value={tier.factorLow ?? ""} className="text-sm"
                         onChange={(e) => {
                           const ranges = [...(config?.price?.ladder_factor_ranges || [])];
-                          ranges[i] = [parseFloat(e.target.value) || 1.0, ranges[i]?.[1] || 1.5];
+                          const raw = e.target.value;
+                          ranges[i] = [raw === "" ? null : parseFloat(raw), ranges[i]?.[1] ?? null];
                           updateConfig("price.ladder_factor_ranges", ranges);
                         }}
                       />
-                      <Input type="number" step="0.1" value={tier.factorHigh} className="text-sm"
+                      <Input type="number" step="0.1" value={tier.factorHigh ?? ""} className="text-sm"
                         onChange={(e) => {
                           const ranges = [...(config?.price?.ladder_factor_ranges || [])];
-                          ranges[i] = [ranges[i]?.[0] || 1.0, parseFloat(e.target.value) || 1.5];
+                          const raw = e.target.value;
+                          ranges[i] = [ranges[i]?.[0] ?? null, raw === "" ? null : parseFloat(raw)];
                           updateConfig("price.ladder_factor_ranges", ranges);
                         }}
                       />
@@ -1273,6 +1273,19 @@ export default function ProductConfig() {
                       </Button>
                     </div>
                   ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const orders = [...(config?.price?.ladder_min_orders || []), null];
+                      const ranges = [...(config?.price?.ladder_factor_ranges || []), [null, null]];
+                      updateConfig("price.ladder_min_orders", orders);
+                      updateConfig("price.ladder_factor_ranges", ranges);
+                    }}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />增加一档
+                  </Button>
                 </div>
                 <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
                   <p className="text-xs text-amber-700">
@@ -1286,9 +1299,10 @@ export default function ProductConfig() {
                     <Label className="text-sm text-right text-muted-foreground">基础销售方式</Label>
                     <select
                       className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                      value={config?.price?.sale_type || "按件卖"}
+                      value={config?.price?.sale_type ?? ""}
                       onChange={(e) => updateConfig("price.sale_type", e.target.value)}
                     >
+                      <option value=""></option>
                       <option value="按件卖">按件卖</option>
                       <option value="按批卖">按批卖</option>
                     </select>
@@ -1341,7 +1355,7 @@ export default function ProductConfig() {
                         type="text"
                         inputMode="numeric"
                         value={tier.max_order}
-                        placeholder="0 表示以上"
+
                         className="text-sm"
                         onChange={(e) => {
                           markLocalEdit();
@@ -1364,7 +1378,7 @@ export default function ProductConfig() {
                         type="text"
                         inputMode="numeric"
                         value={tier.delivery_days}
-                        placeholder="天数"
+
                         className="text-sm"
                         onChange={(e) => {
                           markLocalEdit();
@@ -1389,11 +1403,9 @@ export default function ProductConfig() {
                           variant="ghost"
                           size="sm"
                           className="text-destructive hover:text-destructive h-8 w-8 p-0"
-                          disabled={deliveryTierDrafts.length <= 1}
                           onClick={() => {
                             markLocalEdit();
                             setDeliveryTierDrafts((prev) => {
-                              if (prev.length <= 1) return prev;
                               const next = prev.filter((_, idx) => idx !== i);
                               updateConfig("delivery.ladder_delivery", draftsToDeliveryTiers(next));
                               return next;
@@ -1406,7 +1418,7 @@ export default function ProductConfig() {
                     </div>
                   ))}
                   <p className="text-xs text-muted-foreground px-2">
-                    可自由增减档位（1～{MAX_DELIVERY_TIERS} 档）；页面已有发货期时将自动跳过。
+                    可自由增减档位（0～{MAX_DELIVERY_TIERS} 档）；页面已有发货期时将自动跳过。
                   </p>
                 </div>
                 <Separator />
@@ -1418,17 +1430,17 @@ export default function ProductConfig() {
                       type="number"
                       min={0}
                       max={999999999}
-                      value={config?.price?.product_inventory ?? 99999}
-                      onChange={(e) =>
-                        updateConfig("price.product_inventory", parseInt(e.target.value, 10) || 0)
-                      }
+                      value={config?.price?.product_inventory ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        updateConfig("price.product_inventory", raw === "" ? null : parseInt(raw, 10));
+                      }}
                       className="text-sm"
                     />
                     <Label className="text-sm text-right text-muted-foreground">商品编码</Label>
                     <Input
                       value={config?.price?.sku_outer_id ?? ""}
                       maxLength={64}
-                      placeholder="填入每个 SKU 的商品编码（含美国 HS 编码维护）"
                       onChange={(e) => updateConfig("price.sku_outer_id", e.target.value)}
                       className="text-sm"
                     />
@@ -1443,7 +1455,7 @@ export default function ProductConfig() {
                   <div className="grid grid-cols-4 gap-4 items-center">
                     <Label className="text-sm text-right text-muted-foreground">样品服务</Label>
                     <Switch
-                      checked={config?.price?.sample_service_enabled ?? true}
+                      checked={config?.price?.sample_service_enabled ?? false}
                       onCheckedChange={(v) => updateConfig("price.sample_service_enabled", v)}
                     />
                     <Label className="text-sm text-right text-muted-foreground">支持轻定制</Label>
@@ -1457,8 +1469,11 @@ export default function ProductConfig() {
                     <Input
                       type="number"
                       min={1}
-                      value={config?.price?.sample_max_quantity ?? 1}
-                      onChange={(e) => updateConfig("price.sample_max_quantity", parseInt(e.target.value, 10) || 1)}
+                      value={config?.price?.sample_max_quantity ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        updateConfig("price.sample_max_quantity", raw === "" ? null : parseInt(raw, 10));
+                      }}
                       className="text-sm"
                     />
                     <Label className="text-sm text-right text-muted-foreground">样品SKU价格 (USD)</Label>
@@ -1466,7 +1481,6 @@ export default function ProductConfig() {
                       type="number"
                       min={0}
                       step="0.01"
-                      placeholder="留空则按阶梯最高价"
                       value={
                         config?.price?.sample_sku_price_usd != null &&
                         Number(config.price.sample_sku_price_usd) > 0
