@@ -20,6 +20,7 @@
 import os
 import re
 import time
+import gc
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -217,19 +218,16 @@ def parse_house_type_from_main2_filename(pid: str, cfg=None) -> str:
     return tokens[-1]
 
 
-def _detect_title_excel_header_row(path: str, sheet_name: str = "产品标题", max_scan_rows: int = 10) -> int:
-    """自动识别标题 Excel 表头行（0-based），兼容首行为空或说明行的情况。"""
+def _detect_title_excel_header_row_from_xf(xf: pd.ExcelFile, sheet_name: str = "产品标题", max_scan_rows: int = 10) -> int:
+    """在已打开的 ExcelFile 对象上自动识别表头行（0-based）。"""
     try:
-        preview = pd.read_excel(path, sheet_name=sheet_name, header=None, nrows=max_scan_rows)
+        preview = xf.parse(sheet_name=sheet_name, header=None, nrows=max_scan_rows)
     except Exception:
         return 0
-
     if preview is None or preview.empty:
         return 0
-
     scene_names = {"场景", "标题场景"}
     title_names = {"标题", "标题打乱重组"}
-
     for idx in range(len(preview)):
         raw_vals = [
             str(v).strip()
@@ -245,16 +243,33 @@ def _detect_title_excel_header_row(path: str, sheet_name: str = "产品标题", 
     return 0
 
 
+def _detect_title_excel_header_row(path: str, sheet_name: str = "产品标题", max_scan_rows: int = 10) -> int:
+    """自动识别标题 Excel 表头行（0-based），兼容首行为空或说明行的情况。"""
+    try:
+        with pd.ExcelFile(path) as xf:
+            return _detect_title_excel_header_row_from_xf(xf, sheet_name, max_scan_rows)
+    except Exception:
+        return 0
+
+
 def _read_title_excel(path: str, nrows: Optional[int] = None) -> pd.DataFrame:
-    header_row = _detect_title_excel_header_row(path)
-    kwargs: Dict[str, Any] = {
-        "sheet_name": "产品标题",
-        "dtype": str,
-        "header": header_row,
-    }
-    if nrows is not None:
-        kwargs["nrows"] = nrows
-    return pd.read_excel(path, **kwargs)
+    """
+    使用 with pd.ExcelFile(...) 上下文管理器读取标题 Excel。
+    ExcelFile 在 with 块退出时会立即关闭底层文件句柄，
+    不会产生任何临时文件，也不会残留句柄。
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"标题Excel不存在: {path}")
+    with pd.ExcelFile(path) as xf:
+        header_row = _detect_title_excel_header_row_from_xf(xf)
+        kwargs: Dict[str, Any] = {
+            "sheet_name": "产品标题",
+            "dtype": str,
+            "header": header_row,
+        }
+        if nrows is not None:
+            kwargs["nrows"] = nrows
+        return xf.parse(**kwargs)
 
 
 def get_title_excel_health() -> Dict[str, Any]:
@@ -317,11 +332,16 @@ def load_titles_from_excel() -> Dict[str, List[Dict[str, str]]]:
 
 
 def load_keywords_from_excel() -> List[str]:
-    """从 Excel 加载关键词"""
-    import pandas as pd
+    """从 Excel 加载关键词，使用 with pd.ExcelFile 确保句柄及时释放。"""
     cfg = get_config()
+    path = str(getattr(cfg.paths, "title_excel_path", "") or "").strip()
+    if not path or not os.path.exists(path):
+        return []
     try:
-        df = pd.read_excel(cfg.paths.title_excel_path, sheet_name="关键词", dtype=str)
+        with pd.ExcelFile(path) as xf:
+            if "关键词" not in xf.sheet_names:
+                return []
+            df = xf.parse(sheet_name="关键词", dtype=str)
         if "关键词" not in df.columns:
             return []
         keywords = df["关键词"].dropna().astype(str).str.strip().tolist()
