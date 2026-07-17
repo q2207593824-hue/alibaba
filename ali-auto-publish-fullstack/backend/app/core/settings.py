@@ -226,36 +226,28 @@ class AttributeConfig(BaseModel):
 
 
 class PriceConfig(BaseModel):
-    """阶梯价格配置"""
-    exchange_rate: float = 6.6
+    """阶梯价格配置。默认留空，使用前必须由用户填写。"""
+    exchange_rate: Optional[float] = None
     # 售卖单位（struct-priceUnit，阶梯价之前填写）
-    sale_type: str = "按件卖"
-    price_unit: str = "Piece/Pieces"
+    sale_type: str = ""
+    price_unit: str = ""
     batch_num: Optional[int] = None
-    ladder_min_orders: List[int] = [1, 15, 30, 60]
-    ladder_factor_ranges: List[List[float]] = [
-        [1.30, 1.40],
-        [1.20, 1.25],
-        [1.15, 1.20],
-        [1.10, 1.12],
-    ]
-    enable_random_float: bool = True
-    product_inventory: int = 99999
+    ladder_min_orders: List[Optional[int]] = Field(default_factory=list)
+    ladder_factor_ranges: List[List[Optional[float]]] = Field(default_factory=list)
+    enable_random_float: bool = False
+    round_price_to_integer: bool = True
+    product_inventory: Optional[int] = None
     sku_outer_id: str = ""
     # 样品服务（发品时填入 struct-marketSample / struct-sampleSku）
-    sample_service_enabled: bool = True
+    sample_service_enabled: bool = False
     sample_support_light_customization: bool = False
-    sample_max_quantity: int = 1
+    sample_max_quantity: Optional[int] = None
     sample_sku_price_usd: Optional[float] = None
 
 
 class DeliveryConfig(BaseModel):
-    """发货期配置"""
-    ladder_delivery: List[Dict[str, int]] = [
-        {"max_order": 10, "delivery_days": 7},
-        {"max_order": 50, "delivery_days": 15},
-        {"max_order": 0, "delivery_days": 30},
-    ]
+    """发货期配置。默认不创建档位。"""
+    ladder_delivery: List[Dict[str, int]] = Field(default_factory=list)
 
 
 class LogisticsConfig(BaseModel):
