@@ -52,6 +52,7 @@ class IndustryKeywordTitleGenerateRequest(BaseModel):
     min_keyword_heat: float = 0
     output_file: Optional[str] = None
     dropdown_output_file: Optional[str] = None
+    resume: bool = False
 
 
 @router.post("/download/start")
@@ -227,17 +228,66 @@ async def start_generate_industry_keyword_titles(req: IndustryKeywordTitleGenera
         "min_keyword_heat": max(0.0, float(req.min_keyword_heat or 0)),
         "output_file": req.output_file,
         "dropdown_output_file": req.dropdown_output_file,
+        "resume": bool(req.resume),
     }
     task_manager.start_task(INDUSTRY_KEYWORD_TITLE_TASK_ID, run_industry_keyword_title_task, (payload,))
-    return {"success": True, "message": "标题生成任务已启动", "task": task.to_dict()}
+
+    scene_count = len(dict.fromkeys(line.strip() for line in req.scenes.splitlines() if line.strip()))
+    title_count = max(1, int(req.titles_per_scene or 1))
+    scenes_per_batch = max(1, 20 // title_count)
+    estimated_batches = (scene_count + scenes_per_batch - 1) // scenes_per_batch
+    return {
+        "success": True,
+        "message": "标题生成任务已启动",
+        "task": task.to_dict(),
+        "estimate": {
+            "scene_count": scene_count,
+            "expected_title_count": scene_count * title_count,
+            "generation_batch_count": estimated_batches,
+        },
+    }
 
 
 @router.get("/industry-keyword/title/generate/status")
 async def get_generate_industry_keyword_titles_status():
+    from app.services.data_download_service import get_industry_keyword_title_progress_summary
+    persistent_progress = get_industry_keyword_title_progress_summary()
     task = task_manager.get_task(INDUSTRY_KEYWORD_TITLE_TASK_ID)
     if task:
-        return {"success": True, "data": task.to_dict()}
-    return {"success": True, "data": {"status": "idle"}}
+        data = task.to_dict()
+        data["persistent_progress"] = persistent_progress
+        return {"success": True, "data": data}
+    return {
+        "success": True,
+        "data": {
+            "status": "idle",
+            "progress": int(persistent_progress.get("completed_scenes") or 0),
+            "total": int(persistent_progress.get("total_scenes") or 0),
+            "current_step": "",
+            "persistent_progress": persistent_progress,
+        },
+    }
+
+
+@router.post("/industry-keyword/title/generate/resume")
+async def resume_generate_industry_keyword_titles():
+    """使用进度文件中保存的原始参数恢复未完成任务。"""
+    from app.services.data_download_service import (
+        get_industry_keyword_title_resume_request,
+        run_industry_keyword_title_task,
+    )
+
+    existing = task_manager.get_task(INDUSTRY_KEYWORD_TITLE_TASK_ID)
+    if existing and existing.status == TaskStatus.RUNNING:
+        raise HTTPException(status_code=409, detail="标题生成任务正在运行中")
+    try:
+        payload = get_industry_keyword_title_resume_request()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    task = task_manager.create_task(INDUSTRY_KEYWORD_TITLE_TASK_ID, "行业关键词-恢复生成标题")
+    task_manager.start_task(INDUSTRY_KEYWORD_TITLE_TASK_ID, run_industry_keyword_title_task, (payload,))
+    return {"success": True, "message": "已从上次断点恢复标题生成任务", "task": task.to_dict()}
 
 
 @router.post("/industry-keyword/title/generate/stop")
@@ -248,14 +298,62 @@ async def stop_generate_industry_keyword_titles():
     raise HTTPException(status_code=400, detail="没有正在运行的标题生成任务")
 
 
+@router.get("/industry-keyword/title/generate/result/paged")
+async def get_generate_industry_keyword_titles_result_paged(page: int = 1, page_size: int = 20):
+    """分页读取标题结果；优先检查点，缺失时回退到当前任务内存结果。"""
+    from app.services.data_download_service import get_industry_keyword_title_generate_result
+    try:
+        safe_page_size = max(1, min(200, page_size))
+        data = get_industry_keyword_title_generate_result(page=max(1, page), page_size=safe_page_size)
+        persisted_result = data.get("result") if isinstance(data, dict) else None
+        persisted_rows = persisted_result.get("rows") if isinstance(persisted_result, dict) else None
+        task = task_manager.get_task(INDUSTRY_KEYWORD_TITLE_TASK_ID)
+        memory_result = task.result if task and isinstance(task.result, dict) else None
+        memory_rows = memory_result.get("rows") if isinstance(memory_result, dict) else None
+        if isinstance(persisted_rows, list) and (persisted_rows or not memory_rows):
+            return {"success": True, "data": data}
+        if not memory_result:
+            return {"success": True, "data": data}
+
+        rows = memory_result.get("rows") or []
+        total = len(rows)
+        total_pages = max(1, (total + safe_page_size - 1) // safe_page_size)
+        current_page = min(max(1, page), total_pages)
+        start = (current_page - 1) * safe_page_size
+        paged_result = dict(memory_result)
+        paged_result["content"] = ""
+        paged_result["rows"] = rows[start:start + safe_page_size]
+        paged_result["pagination"] = {
+            "page": current_page,
+            "page_size": safe_page_size,
+            "total": total,
+            "total_pages": total_pages,
+        }
+        return {
+            "success": True,
+            "data": {
+                "generated_at": task.finished_at or "",
+                "result": paged_result,
+                "file": "",
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/industry-keyword/title/generate/result")
 async def get_generate_industry_keyword_titles_result():
-    """获取最近一次标题生成结果（任务完成后前端拉取）。"""
+    """获取最近一次完整标题结果，检查点缺失时回退到任务内存结果。"""
     from app.services.data_download_service import get_industry_keyword_title_generate_result
-    task = task_manager.get_task(INDUSTRY_KEYWORD_TITLE_TASK_ID)
-    if task and task.result:
-        return {"success": True, "data": {"generated_at": task.finished_at or "", "result": task.result}}
     data = get_industry_keyword_title_generate_result()
+    if isinstance(data, dict) and data.get("result") is not None:
+        return {"success": True, "data": data}
+    task = task_manager.get_task(INDUSTRY_KEYWORD_TITLE_TASK_ID)
+    if task and isinstance(task.result, dict):
+        return {
+            "success": True,
+            "data": {"generated_at": task.finished_at or "", "result": task.result, "file": ""},
+        }
     return {"success": True, "data": data}
 
 
