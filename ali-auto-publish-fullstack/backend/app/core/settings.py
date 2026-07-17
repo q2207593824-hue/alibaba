@@ -396,8 +396,8 @@ class AiImageGenConfig(BaseModel):
     gemini_api_key: str = ""
     gemini_base_url: str = "https://aigc.dianlichina.com.cn"
     gemini_model: str = "gemini-3.1-flash-image-preview"
-    input_root_dir: str = r"D:\桌面\珠宝图批量生成\原图"
-    output_root_dir: str = r"D:\桌面\珠宝图批量生成\生成图"
+    input_root_dir: str = ""
+    output_root_dir: str = ""
     generations_per_image: int = 6
     aspect_ratio: str = "1:1"
     image_size: str = "1K"
