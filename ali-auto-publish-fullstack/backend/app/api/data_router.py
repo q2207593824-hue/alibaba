@@ -48,6 +48,8 @@ class IndustryKeywordTitleGenerateRequest(BaseModel):
     material: Optional[str] = None
     titles_per_scene: int = 10
     keywords: list[str] = []
+    selected_source_pools: list[str] = []
+    min_keyword_heat: float = 0
     output_file: Optional[str] = None
     dropdown_output_file: Optional[str] = None
 
@@ -221,6 +223,8 @@ async def start_generate_industry_keyword_titles(req: IndustryKeywordTitleGenera
         "material": req.material,
         "titles_per_scene": req.titles_per_scene,
         "keywords": req.keywords or [],
+        "selected_source_pools": req.selected_source_pools or [],
+        "min_keyword_heat": max(0.0, float(req.min_keyword_heat or 0)),
         "output_file": req.output_file,
         "dropdown_output_file": req.dropdown_output_file,
     }
