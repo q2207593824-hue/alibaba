@@ -1141,6 +1141,14 @@ def _parse_numeric_value(value):
         return 0
 
 
+
+def _extract_industry_source_keyword(filename: str) -> str:
+    """从“源关键词_YYYYMMDD.xlsx”文件名还原源关键词。"""
+    stem = os.path.splitext(os.path.basename(str(filename or "")))[0]
+    source = re.sub(r"[_-]\d{8}$", "", stem).strip(" _-")
+    return source or stem
+
+
 def _merge_industry_keywords(task: TaskInfo, cfg, source_folder: str, output_file: str):
     metrics_map = {
         "搜索指数": "搜索指数",
@@ -1155,6 +1163,7 @@ def _merge_industry_keywords(task: TaskInfo, cfg, source_folder: str, output_fil
     if not files:
         raise FileNotFoundError(f"未在目录找到行业关键词Excel: {source_folder}")
 
+    # 键使用 (源关键词, 关键词)，避免不同源关键词下载结果被揉成一个无法区分的总词池。
     all_data = {sheet: {} for sheet in metrics_map.values()}
     task.current_step = "整合行业关键词数据"
     for idx, file_path in enumerate(files, start=1):
@@ -1164,6 +1173,7 @@ def _merge_industry_keywords(task: TaskInfo, cfg, source_folder: str, output_fil
         task.progress = idx
         task.total = len(files)
         filename = os.path.basename(file_path)
+        source_keyword = _extract_industry_source_keyword(filename)
         date_str = _extract_date_from_filename(filename)
         if not date_str:
             mtime = os.path.getmtime(file_path)
@@ -1183,6 +1193,7 @@ def _merge_industry_keywords(task: TaskInfo, cfg, source_folder: str, output_fil
             if pd.isna(keyword) or str(keyword).strip() == "":
                 continue
             keyword = str(keyword).strip()
+            data_key = (source_keyword, keyword)
 
             for source_col, target_sheet in metrics_map.items():
                 if source_col not in df.columns:
@@ -1191,16 +1202,16 @@ def _merge_industry_keywords(task: TaskInfo, cfg, source_folder: str, output_fil
                 if pd.isna(value) or str(value).strip() == "":
                     continue
 
-                if keyword not in all_data[target_sheet]:
-                    all_data[target_sheet][keyword] = {}
+                if data_key not in all_data[target_sheet]:
+                    all_data[target_sheet][data_key] = {}
 
                 current_val = _parse_numeric_value(value)
-                if date_str in all_data[target_sheet][keyword]:
-                    existing_val = _parse_numeric_value(all_data[target_sheet][keyword][date_str])
+                if date_str in all_data[target_sheet][data_key]:
+                    existing_val = _parse_numeric_value(all_data[target_sheet][data_key][date_str])
                     if current_val > existing_val:
-                        all_data[target_sheet][keyword][date_str] = value
+                        all_data[target_sheet][data_key][date_str] = value
                 else:
-                    all_data[target_sheet][keyword][date_str] = value
+                    all_data[target_sheet][data_key][date_str] = value
 
     os.makedirs(os.path.dirname(output_file) or source_folder, exist_ok=True)
     with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
@@ -1212,23 +1223,23 @@ def _merge_industry_keywords(task: TaskInfo, cfg, source_folder: str, output_fil
             df_wide = pd.DataFrame.from_dict(data_dict, orient="index")
             date_cols = sorted(df_wide.columns, reverse=True)
             df_wide = df_wide[date_cols]
+            df_wide.index = pd.MultiIndex.from_tuples(df_wide.index, names=["源关键词", "关键词"])
             df_wide.reset_index(inplace=True)
-            df_wide.rename(columns={"index": "关键词"}, inplace=True)
             df_wide.to_excel(writer, sheet_name=sheet_name, index=False)
 
             worksheet = writer.sheets[sheet_name]
             max_row = len(df_wide) + 1
-            max_col = len(df_wide.columns) + 1
-            num_date_cols = len(date_cols)
+            first_date_col = 3
+            last_date_col = worksheet.max_column
 
             for row_idx in range(2, max_row + 1):
                 row_values = []
-                for col_idx in range(2, max_col + 1):
+                for col_idx in range(first_date_col, last_date_col + 1):
                     cell = worksheet.cell(row=row_idx, column=col_idx)
                     if cell.value is not None and str(cell.value).strip() != "":
                         num_val = _parse_numeric_value(cell.value)
                         row_values.append((num_val, col_idx))
-                if num_date_cols > 1 and len(row_values) > 1:
+                if len(row_values) > 1:
                     unique_values = set(val for val, _ in row_values)
                     if len(unique_values) > 1:
                         _, max_col_idx = max(row_values, key=lambda x: x[0])
@@ -1309,29 +1320,63 @@ def _download_and_merge_industry_keywords(task: TaskInfo, cfg, big_keywords_over
     task.current_step = f"行业关键词任务完成：下载成功 {success_count}/{len(keyword_list)}，整合完成"
 
 
-def _load_existing_dropdown_rows(output_file: str) -> List[tuple]:
-    """读取已有下拉词结果（原词, 下拉词）。"""
+
+def _load_existing_dropdown_rows(output_file: str) -> List[Dict[str, Any]]:
+    """读取已有下拉词结果，并兼容旧的“原词、US”两列表格。"""
     if not output_file or not os.path.exists(output_file):
         return []
-    rows: List[tuple] = []
+    rows: List[Dict[str, Any]] = []
     try:
         wb = load_workbook(output_file, read_only=True, data_only=True)
         ws = wb.active
+        headers = [str(cell.value or "").strip() for cell in ws[1]]
+        header_map = {name: idx for idx, name in enumerate(headers) if name}
         for row in ws.iter_rows(min_row=2, values_only=True):
             if not row:
                 continue
-            origin = str(row[0] or "").strip()
-            word = str(row[1] or "").strip()
-            if origin or word:
-                rows.append((origin, word))
+
+            def get_value(name: str, fallback_index: Optional[int] = None):
+                idx = header_map.get(name)
+                if idx is not None and idx < len(row):
+                    return row[idx]
+                if fallback_index is not None and fallback_index < len(row):
+                    return row[fallback_index]
+                return ""
+
+            origin = str(get_value("原词", 0) or "").strip()
+            word = str(get_value("下拉词") or get_value("US", 1) or "").strip()
+            source = str(get_value("源关键词") or origin).strip()
+            heat = _parse_numeric_value(get_value("关键词热度"))
+            if source or origin or word:
+                rows.append({"源关键词": source, "原词": origin, "关键词热度": heat, "US": word})
         wb.close()
     except Exception as e:
         logger.warning(f"读取已有下拉词文件失败: {output_file} | {e}")
     return rows
 
 
+def _build_industry_keyword_source_lookup(output_file: str) -> Dict[str, List[Dict[str, Any]]]:
+    """按行业关键词建立其所属源关键词池和最新热度的映射。"""
+    lookup: Dict[str, List[Dict[str, Any]]] = {}
+    table = get_industry_keyword_latest(output_file)
+    latest_col = str(table.get("latest_col") or "")
+    for row in table.get("rows", []) or []:
+        keyword = str((row or {}).get("关键词", "") or "").strip()
+        if not keyword:
+            continue
+        source = str((row or {}).get("源关键词", "") or keyword).strip()
+        heat = _parse_numeric_value((row or {}).get(latest_col)) if latest_col else 0
+        key = keyword.lower()
+        values = lookup.setdefault(key, [])
+        identity = source.lower()
+        if any(str(v.get("source", "")).lower() == identity for v in values):
+            continue
+        values.append({"source": source, "heat": heat})
+    return lookup
+
+
 def _download_industry_keyword_dropdown(task: TaskInfo, cfg, dropdown_keywords_override: Optional[str] = None):
-    """行业关键词下拉词下载（复用 Cookie 管理配置）。"""
+    """行业关键词下拉词下载，并保留源关键词池及原词热度。"""
     icfg = cfg.industry_keyword
     raw_keywords = str(
         dropdown_keywords_override
@@ -1339,6 +1384,7 @@ def _download_industry_keyword_dropdown(task: TaskInfo, cfg, dropdown_keywords_o
         else getattr(icfg, "dropdown_keywords", "") or ""
     )
     output_file_raw = _normalize_download_root(str(getattr(icfg, "dropdown_output_file", "") or ""))
+    industry_output_file = _normalize_download_root(str(getattr(icfg, "output_file", "") or ""))
     cookie_file = _normalize_download_root(str(getattr(cfg.paths, "cookie_file", "") or "").strip())
 
     if not raw_keywords.strip():
@@ -1359,7 +1405,6 @@ def _download_industry_keyword_dropdown(task: TaskInfo, cfg, dropdown_keywords_o
         raise ValueError("Cookie解析失败，请在配置管理 -> Cookie管理中重新登录并保存Cookie")
 
     keywords = [k.strip() for k in re.split(r"[,，;；\n\r]+", raw_keywords) if k.strip()]
-    # 去重并保持顺序
     unique_keywords: List[str] = []
     seen = set()
     for kw in keywords:
@@ -1374,13 +1419,14 @@ def _download_industry_keyword_dropdown(task: TaskInfo, cfg, dropdown_keywords_o
 
     logger.info(f"行业关键词下拉词任务开始，共 {len(keywords)} 个原词: {', '.join(keywords)}")
 
+    source_lookup = _build_industry_keyword_source_lookup(industry_output_file)
     delay_seconds = float(getattr(icfg, "delay_seconds", 2.0) or 2.0)
     batch_origin_keys = {kw.lower() for kw in keywords}
     existing_rows = _load_existing_dropdown_rows(output_file)
     preserved_rows = [
-        (origin, word)
-        for origin, word in existing_rows
-        if str(origin).strip().lower() not in batch_origin_keys
+        row
+        for row in existing_rows
+        if str((row or {}).get("原词", "")).strip().lower() not in batch_origin_keys
     ]
 
     task.current_step = "下拉词下载中"
@@ -1399,22 +1445,26 @@ def _download_industry_keyword_dropdown(task: TaskInfo, cfg, dropdown_keywords_o
         "Cookie": cookie_str.encode("utf-8").decode("latin-1"),
     }
 
-    # 输出：原词 + US，逐行展开下拉词（保留未在本次任务中的历史原词）
+    # 输出保留：源关键词池、下载原词、原词最新热度、下拉词。
     wb = Workbook()
     ws = wb.active
     ws.title = "下拉词"
-    ws.append(["原词", "US"])
+    ws.append(["源关键词", "原词", "关键词热度", "US"])
 
     exist_words = set()
     green_fill = PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid")
     total_count = 0
-    preserved_origin_count = len({str(o).strip().lower() for o, _ in preserved_rows if str(o).strip()})
+    preserved_origin_count = len({str((r or {}).get("原词", "")).strip().lower() for r in preserved_rows if str((r or {}).get("原词", "")).strip()})
 
-    for origin, word in preserved_rows:
-        key = word.lower()
+    for row in preserved_rows:
+        source = str((row or {}).get("源关键词", "") or (row or {}).get("原词", "")).strip()
+        origin = str((row or {}).get("原词", "")).strip()
+        heat = _parse_numeric_value((row or {}).get("关键词热度"))
+        word = str((row or {}).get("US", "") or (row or {}).get("下拉词", "")).strip()
+        key = (source.lower(), word.lower())
         if not word or key in exist_words:
             continue
-        ws.append([origin, word])
+        ws.append([source, origin, heat, word])
         exist_words.add(key)
         total_count += 1
 
@@ -1441,19 +1491,22 @@ def _download_industry_keyword_dropdown(task: TaskInfo, cfg, dropdown_keywords_o
         except Exception as e:
             logger.warning(f"下拉词请求失败: {kw} | {e}")
 
-        # 去重后写入，首行原词高亮
+        source_infos = source_lookup.get(kw.lower()) or [{"source": kw, "heat": 0}]
         wrote = 0
-        for word in suggests:
-            key = word.lower()
-            if key in exist_words:
-                continue
-            ws.append([kw, word])
-            exist_words.add(key)
-            total_count += 1
-            new_count += 1
-            wrote += 1
-            if wrote == 1:
-                ws.cell(row=ws.max_row, column=1).fill = green_fill
+        for info in source_infos:
+            source = str((info or {}).get("source", "") or kw).strip()
+            heat = _parse_numeric_value((info or {}).get("heat"))
+            for word in suggests:
+                key = (source.lower(), word.lower())
+                if key in exist_words:
+                    continue
+                ws.append([source, kw, heat, word])
+                exist_words.add(key)
+                total_count += 1
+                new_count += 1
+                wrote += 1
+                if wrote == 1:
+                    ws.cell(row=ws.max_row, column=1).fill = green_fill
 
         if idx < len(keywords):
             time.sleep(max(0.0, delay_seconds))
@@ -4975,12 +5028,13 @@ def get_keyword_latest_summary(dir_path: Optional[str] = None) -> Dict[str, List
     return data
 
 
+
 def get_industry_keyword_latest(output_file: Optional[str] = None) -> Dict:
-    """读取行业关键词整合结果（默认取“搜索指数”sheet，按最新日期列降序）。"""
+    """读取行业关键词整合结果，并返回源关键词池及最新热度列。"""
     cfg = get_config()
     path = (output_file or cfg.industry_keyword.output_file or "").strip()
     if not path:
-        return {"columns": [], "rows": [], "latest_col": ""}
+        return {"columns": [], "rows": [], "latest_col": "", "source_pools": []}
 
     if re.match(r"^[\\/]+[A-Za-z]:", path):
         path = re.sub(r"^[\\/]+", "", path)
@@ -4989,23 +5043,24 @@ def get_industry_keyword_latest(output_file: Optional[str] = None) -> Dict:
     if os.path.isdir(path) or not os.path.basename(path).lower().endswith((".xlsx", ".xls")):
         path = os.path.join(path, "关键词数据总表_宽表版.xlsx")
     if not os.path.exists(path):
-        return {"columns": [], "rows": [], "latest_col": ""}
+        return {"columns": [], "rows": [], "latest_col": "", "source_pools": []}
 
     try:
         with pd.ExcelFile(path) as xls:
             target_sheet = "搜索指数" if "搜索指数" in xls.sheet_names else (xls.sheet_names[0] if xls.sheet_names else "")
             if not target_sheet:
-                return {"columns": [], "rows": [], "latest_col": ""}
+                return {"columns": [], "rows": [], "latest_col": "", "source_pools": []}
             df = pd.read_excel(xls, sheet_name=target_sheet)
     except Exception:
-        return {"columns": [], "rows": [], "latest_col": ""}
+        return {"columns": [], "rows": [], "latest_col": "", "source_pools": []}
 
     if df is None or df.empty:
-        return {"columns": [], "rows": [], "latest_col": ""}
+        return {"columns": [], "rows": [], "latest_col": "", "source_pools": []}
 
     cols = [str(c) for c in list(df.columns)]
     keyword_col = "关键词" if "关键词" in cols else (cols[0] if cols else "")
-    latest_col = cols[1] if len(cols) > 1 else ""
+    date_cols = [c for c in cols if c not in {"源关键词", "关键词"}]
+    latest_col = date_cols[0] if date_cols else ""
 
     def _to_num(v):
         try:
@@ -5020,15 +5075,24 @@ def get_industry_keyword_latest(output_file: Optional[str] = None) -> Dict:
         df = df.sort_values(by=latest_col, key=lambda s: s.map(_to_num), ascending=False, kind="mergesort")
 
     rows = []
+    source_pools: List[str] = []
+    source_seen = set()
     for _, r in df.iterrows():
         obj = {c: (None if pd.isna(r.get(c)) else r.get(c)) for c in cols}
         if keyword_col and str(obj.get(keyword_col) or "").strip():
+            source = str(obj.get("源关键词") or obj.get(keyword_col) or "").strip()
+            if "源关键词" not in obj:
+                obj["源关键词"] = source
+            if source and source.lower() not in source_seen:
+                source_seen.add(source.lower())
+                source_pools.append(source)
             rows.append(obj)
 
     return {
-        "columns": cols,
+        "columns": (["源关键词"] + cols if "源关键词" not in cols else cols),
         "rows": rows[:5000],
         "latest_col": latest_col,
+        "source_pools": source_pools,
         "sheet": target_sheet,
         "file": path,
     }
@@ -5207,6 +5271,8 @@ def generate_industry_keyword_titles(
     material: Optional[str] = None,
     output_file: Optional[str] = None,
     dropdown_output_file: Optional[str] = None,
+    selected_source_pools: Optional[List[str]] = None,
+    min_keyword_heat: float = 0,
     task: Optional["TaskInfo"] = None,
 ) -> Dict:
     """
@@ -5228,21 +5294,54 @@ def generate_industry_keyword_titles(
         raise ValueError("每个场景生成数量过大，请设置为50以内")
 
     if task:
-        task.current_step = "准备关键词"
-    keyword_list = _normalize_keyword_list(keywords or [])
+        task.current_step = "按关键词池和热度筛选关键词"
+    selected_pools = _normalize_keyword_list(selected_source_pools or [])
+    if not selected_pools:
+        raise ValueError("请至少选择一个源关键词池")
+    selected_pool_keys = {x.lower() for x in selected_pools}
+    try:
+        min_heat = max(0.0, float(min_keyword_heat or 0))
+    except Exception:
+        min_heat = 0.0
+
+    requested_keyword_keys = {x.lower() for x in _normalize_keyword_list(keywords or [])}
+    if normalized_mode == "industry_hot":
+        table = get_industry_keyword_latest(output_file)
+        rows = table.get("rows", []) or []
+        latest_col = str(table.get("latest_col") or "")
+
+        def row_keyword(row: Dict) -> str:
+            return str((row or {}).get("关键词", "") or "").strip()
+
+        def row_heat(row: Dict) -> float:
+            return _parse_numeric_value((row or {}).get(latest_col)) if latest_col else 0.0
+    else:
+        table = get_industry_keyword_dropdown_latest(dropdown_output_file)
+        rows = table.get("rows", []) or []
+
+        def row_keyword(row: Dict) -> str:
+            return str((row or {}).get("下拉词", "") or (row or {}).get("US", "") or "").strip()
+
+        def row_heat(row: Dict) -> float:
+            return _parse_numeric_value((row or {}).get("关键词热度"))
+
+    filtered_rows = []
+    for row in rows:
+        source = str((row or {}).get("源关键词", "") or (row or {}).get("原词", "") or "").strip()
+        keyword = row_keyword(row)
+        heat = row_heat(row)
+        if not source or source.lower() not in selected_pool_keys:
+            continue
+        if heat < min_heat:
+            continue
+        if requested_keyword_keys and keyword.lower() not in requested_keyword_keys:
+            continue
+        if keyword:
+            filtered_rows.append({"keyword": keyword, "source": source, "heat": heat})
+
+    keyword_list = _normalize_keyword_list([str(row.get("keyword") or "") for row in filtered_rows])
     if not keyword_list:
-        if normalized_mode == "industry_hot":
-            table = get_industry_keyword_latest(output_file)
-            rows = table.get("rows", []) or []
-            keyword_list = _normalize_keyword_list([str((r or {}).get("关键词", "")).strip() for r in rows])
-        else:
-            table = get_industry_keyword_dropdown_latest(dropdown_output_file)
-            rows = table.get("rows", []) or []
-            keyword_list = _normalize_keyword_list(
-                [str((r or {}).get("下拉词", "") or (r or {}).get("US", "")).strip() for r in rows]
-            )
-    if not keyword_list:
-        raise ValueError("没有可用关键词，请先准备关键词数据")
+        raise ValueError(f"所选关键词池中没有热度大于等于 {min_heat:g} 的可用关键词")
 
     api_key = str(getattr(cfg.data_analysis, "doubao_api_key", "") or "").strip()
     model_name = str(getattr(cfg.data_analysis, "doubao_model_name", "doubao-seed-2-0-pro-260215") or "").strip()
@@ -5399,6 +5498,9 @@ def generate_industry_keyword_titles(
         "titles_per_scene": count,
         "keyword_count": len(keyword_list),
         "keywords": keyword_list,
+        "selected_source_pools": selected_pools,
+        "min_keyword_heat": min_heat,
+        "filtered_keyword_rows": filtered_rows,
         "content": content,
         "rows": parsed_rows,
         "output_file": output_path,
@@ -5424,6 +5526,10 @@ def run_industry_keyword_title_task(task: "TaskInfo", req: Dict[str, Any]):
     keywords = (req or {}).get("keywords") or []
     if not isinstance(keywords, list):
         keywords = []
+    selected_source_pools = (req or {}).get("selected_source_pools") or []
+    if not isinstance(selected_source_pools, list):
+        selected_source_pools = []
+    min_keyword_heat = (req or {}).get("min_keyword_heat") or 0
     output_file = (req or {}).get("output_file")
     dropdown_output_file = (req or {}).get("dropdown_output_file")
 
@@ -5435,6 +5541,8 @@ def run_industry_keyword_title_task(task: "TaskInfo", req: Dict[str, Any]):
         keywords=[str(x) for x in keywords],
         output_file=str(output_file).strip() if output_file else None,
         dropdown_output_file=str(dropdown_output_file).strip() if dropdown_output_file else None,
+        selected_source_pools=[str(x) for x in selected_source_pools],
+        min_keyword_heat=float(min_keyword_heat or 0),
         task=task,
     )
     task.result = result
@@ -5491,7 +5599,8 @@ def get_industry_keyword_dropdown_latest(output_file: Optional[str] = None) -> D
         if any(str(obj.get(c, "")).strip() for c in cols):
             rows.append(obj)
 
-    return {"columns": cols, "rows": rows[:5000], "sheet": target_sheet, "file": path}
+    source_pools = _normalize_keyword_list([str((r or {}).get("源关键词", "") or (r or {}).get("原词", "")) for r in rows])
+    return {"columns": cols, "rows": rows[:5000], "source_pools": source_pools, "sheet": target_sheet, "file": path}
 
 
 def _read_excel_all_sheets(path: str) -> tuple[List[str], Dict[str, pd.DataFrame]]:
@@ -5620,7 +5729,11 @@ def delete_industry_keyword_dropdown_rows(output_file: Optional[str], rows: List
         return {"deleted": 0, "total": 0, "file": path}
 
     targets = {
-        (str((r or {}).get("原词", "")).strip(), str((r or {}).get("下拉词", "")).strip())
+        (
+            str((r or {}).get("源关键词", "")).strip(),
+            str((r or {}).get("原词", "")).strip(),
+            str((r or {}).get("下拉词", "")).strip(),
+        )
         for r in (rows or [])
         if str((r or {}).get("原词", "")).strip() or str((r or {}).get("下拉词", "")).strip()
     }
@@ -5637,14 +5750,19 @@ def delete_industry_keyword_dropdown_rows(output_file: Optional[str], rows: List
         return {"deleted": 0, "total": 0, "file": path}
 
     cols = [str(c) for c in list(df.columns)]
+    source_col = "源关键词" if "源关键词" in cols else ""
     origin_col = "原词" if "原词" in cols else (cols[0] if cols else "")
-    suggestion_col = "下拉词" if "下拉词" in cols else ("US" if "US" in cols else (cols[1] if len(cols) > 1 else ""))
+    suggestion_col = "下拉词" if "下拉词" in cols else ("US" if "US" in cols else (cols[-1] if len(cols) > 1 else ""))
     if not origin_col or not suggestion_col:
         return {"deleted": 0, "total": len(df), "file": path}
 
     before = len(df)
     mask = df.apply(
-        lambda r: (str(r.get(origin_col, "")).strip(), str(r.get(suggestion_col, "")).strip()) in targets,
+        lambda r: (
+            str(r.get(source_col, "")).strip() if source_col else "",
+            str(r.get(origin_col, "")).strip(),
+            str(r.get(suggestion_col, "")).strip(),
+        ) in targets,
         axis=1,
     )
     df = df[~mask]
@@ -5656,7 +5774,7 @@ def delete_industry_keyword_dropdown_rows(output_file: Optional[str], rows: List
         sheet_names,
         sheet_frames,
         empty_sheet_name="下拉词",
-        empty_columns=["原词", "US"],
+        empty_columns=["源关键词", "原词", "关键词热度", "US"],
     )
     return {"deleted": deleted, "total": before, "file": path, "sheet": target_sheet}
 
