@@ -290,6 +290,12 @@ def set_ladder_price(
 
     # 2) 计算阶梯价（同向浮动 + 向上取整）
     ladder_config = _calculate_ladder_prices(ex_price, price_config)
+    if not ladder_config:
+    logger.error(
+        "价格模板为空或不完整，请先填写汇率和至少一档阶梯价格"
+    )
+    return False
+
     logger.info(f"出厂价: {ex_price}元, 阶梯价格: {ladder_config}")
 
     try:
@@ -374,7 +380,12 @@ def set_ladder_price(
         logger.info("阶梯价格设置完成")
 
         # 8) 填入可售数量
-        _fill_sku_inventory(driver, price_config.product_inventory)
+        inventory = getattr(price_config, "product_inventory", None)
+        if inventory is not None:
+            _fill_sku_inventory(driver, int(inventory))
+        else:
+            logger.info("未配置可售数量，跳过 SKU 库存填写")
+
 
         # 8b) 发货期（可售数量之后）
         if delivery_config is not None:
@@ -418,21 +429,47 @@ def _read_factory_price(main_dir: str) -> Optional[float]:
         return None
 
 
-def _calculate_ladder_prices(ex_price: float, config: PriceConfig) -> List[Tuple[int, int]]:
-    """计算阶梯价格（同向浮动）"""
-    if config.enable_random_float:
-        offset_ratio = random.random()
-    else:
-        offset_ratio = 0.0
+def _calculate_ladder_prices(
+    ex_price: float,
+    config: PriceConfig,
+) -> List[Tuple[int, int]]:
+    """计算阶梯价格；空值或不完整档位不参与计算。"""
+    exchange_rate = float(
+        getattr(config, "exchange_rate", None) or 0
+    )
+    if exchange_rate <= 0:
+        return []
+
+    offset_ratio = (
+        random.random() if config.enable_random_float else 0.0
+    )
+    orders = list(
+        getattr(config, "ladder_min_orders", None) or []
+    )
+    ranges = list(
+        getattr(config, "ladder_factor_ranges", None) or []
+    )
 
     ladder_config: List[Tuple[int, int]] = []
-    for i, (low, high) in enumerate(config.ladder_factor_ranges):
-        min_order = config.ladder_min_orders[i]
+    for i in range(min(len(orders), len(ranges))):
+        row = ranges[i] or []
+        if (
+            orders[i] is None
+            or len(row) < 2
+            or row[0] is None
+            or row[1] is None
+        ):
+            continue
+
+        min_order = int(orders[i])
+        low = float(row[0])
+        high = float(row[1])
         factor = low + offset_ratio * (high - low)
-        price = math.ceil(ex_price * factor / config.exchange_rate)
+        price = math.ceil(ex_price * factor / exchange_rate)
         ladder_config.append((min_order, price))
 
     return ladder_config
+
 
 
 def _fill_sku_inventory(driver, inventory: int):
