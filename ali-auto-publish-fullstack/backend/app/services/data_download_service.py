@@ -5186,11 +5186,12 @@ def _append_scene_titles_to_title_excel(excel_path: str, rows: List[Dict]) -> Di
 
     wb = None
     created = False
-    temp_path = ""
     file_existed_at_start = os.path.isfile(path)
     _TITLE_EXCEL_WRITE_LOCK.acquire()
     try:
         if file_existed_at_start:
+            # openpyxl.load_workbook 内部使用 zipfile.ZipFile 读取完毕后立即关闭句柄，
+            # 不会持续占用文件锁，可以直接读取源文件。
             wb = load_workbook(path)
         else:
             wb = Workbook()
@@ -5269,78 +5270,39 @@ def _append_scene_titles_to_title_excel(excel_path: str, rows: List[Dict]) -> Di
                     del wb["Sheet"]
             except Exception:
                 pass
-
-        # 先保存到同目录临时文件，再原子替换目标文件。目标不存在时等同于创建，
-        # 目标存在时等同于安全追加，避免直接保存失败后破坏原文件。
-        temp_dir = parent or os.getcwd()
-        fd, temp_path = tempfile.mkstemp(
-            prefix=f".{os.path.basename(path)}.",
-            suffix=".tmp.xlsx",
-            dir=temp_dir,
-        )
-        os.close(fd)
-        wb.save(temp_path)
+        # 直接保存到目标文件。
+        # 在 Windows 下，360/Defender 等安全软件会在文件写入后短暂扫描并锁定文件，
+        # 导致第一次 save 失败。这里加重试循环，等它扫描完再重试。
+        _save_last_err = None
+        for _attempt in range(20):  # 最多等 20 秒
+            try:
+                wb.save(path)
+                _save_last_err = None
+                break
+            except (PermissionError, OSError) as _e:
+                _save_last_err = _e
+                time.sleep(1.0)  # 每次等待 1 秒
+        if _save_last_err is not None:
+            raise _save_last_err
         wb.close()
         wb = None
-
-        save_mode = "atomic_replace"
-        last_replace_error = None
-        for attempt in range(3):
-            try:
-                os.replace(temp_path, path)
-                temp_path = ""
-                break
-            except PermissionError as e:
-                last_replace_error = e
-                if attempt < 2:
-                    time.sleep(0.5 * (attempt + 1))
-
-        # Windows可能允许修改文件内容，但不允许删除/替换目录项。原子替换失败时，
-        # 自动回退为把已经生成好的完整工作簿直接写回目标文件，实现“存在则追加”。
-        direct_write_error = None
-        if temp_path:
-            save_mode = "direct_overwrite_fallback"
-            for attempt in range(3):
-                try:
-                    with open(temp_path, "rb") as src, open(path, "wb") as dst:
-                        shutil.copyfileobj(src, dst, length=1024 * 1024)
-                        dst.flush()
-                        os.fsync(dst.fileno())
-                    # 写回后立即校验文件仍是可读取的Excel工作簿。
-                    verify_wb = load_workbook(path, read_only=True)
-                    verify_wb.close()
-                    try:
-                        os.remove(temp_path)
-                    except Exception:
-                        pass
-                    temp_path = ""
-                    break
-                except (PermissionError, OSError) as e:
-                    direct_write_error = e
-                    if attempt < 2:
-                        time.sleep(0.5 * (attempt + 1))
-
-        if temp_path:
-            if file_existed_at_start:
-                raise ValueError(
-                    f"标题Excel已存在，但原子替换和直接追加写回均失败；请检查文件只读属性、目录权限或占用进程：{path}"
-                ) from (direct_write_error or last_replace_error)
-            raise ValueError(
-                f"标题Excel不存在，自动创建失败；请检查目标目录写入权限：{path}"
-            ) from (direct_write_error or last_replace_error)
-
         return {
             "file": path,
             "sheet": sheet_name,
             "added": added,
             "skipped": skipped,
             "created": created,
-            "save_mode": save_mode,
+            "save_mode": "direct_save",
         }
     except PermissionError as e:
         if file_existed_at_start:
-            raise ValueError(f"标题Excel已存在但无法读取或追加，请关闭Excel并检查文件权限：{path}") from e
-        raise ValueError(f"标题Excel不存在且创建失败，请检查目标目录权限：{path}") from e
+            raise ValueError(
+                f"标题Excel已存在但无法写入，请确认："
+                f"① Excel/WPS 已关闭该文件；"
+                f"② 360/Defender 等安全软件尚未扫描完毕（程序已等待 20 秒）；"
+                f"③ 文件未被设为只读：{path}"
+            ) from e
+        raise ValueError(f"标题Excel创建失败，请检查目标目录写入权限：{path}") from e
     except OSError as e:
         raise ValueError(f"标题Excel保存失败：{path}｜{e}") from e
     finally:
@@ -5349,12 +5311,6 @@ def _append_scene_titles_to_title_excel(excel_path: str, rows: List[Dict]) -> Di
                 wb.close()
         except Exception:
             pass
-        if temp_path:
-            try:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-            except Exception:
-                pass
         _TITLE_EXCEL_WRITE_LOCK.release()
 
 
