@@ -1140,10 +1140,16 @@ export const dataApi = {
     min_keyword_heat: number;
     output_file?: string;
     dropdown_output_file?: string;
+    resume?: boolean;
   }) => api.post("/data/industry-keyword/title/generate/start", params),
   getIndustryKeywordTitleGenerateStatus: () => api.get("/data/industry-keyword/title/generate/status"),
+  resumeIndustryKeywordTitleGenerate: () => api.post("/data/industry-keyword/title/generate/resume", {}),
   stopIndustryKeywordTitleGenerate: () => api.post("/data/industry-keyword/title/generate/stop", {}),
   getIndustryKeywordTitleGenerateResult: () => api.get("/data/industry-keyword/title/generate/result"),
+  getIndustryKeywordTitleGenerateResultPaged: (page: number = 1, pageSize: number = 20) =>
+    api.get("/data/industry-keyword/title/generate/result/paged", {
+      params: { page, page_size: pageSize },
+    }),
 
   /** 获取店铺运营最新数据 */
   getStoreOverviewLatest: (savePath?: string, includeDetails: boolean = true) =>
