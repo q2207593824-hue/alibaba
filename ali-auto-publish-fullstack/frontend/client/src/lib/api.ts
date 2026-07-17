@@ -966,6 +966,10 @@ export const uploadApi = {
 
   /** 获取当天失败的优化产品ID */
   getOptimizeFailedToday: () => api.get("/upload/optimize/failed-today"),
+  /** 获取原图根目录下的一级子目录列表 */
+  getPrimarySubdirs: () => api.get("/upload/scenes/primary-subdirs"),
+  /** 传入选中的子目录列表，递归提取场景名称 */
+  getScenesFromSubdirs: (subdirs: string[]) => api.post("/upload/scenes/from-subdirs", { subdirs }),
 };
 
 // ===================== 发品页扫描 API（独立工具） =====================
